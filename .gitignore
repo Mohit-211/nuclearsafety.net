@@ -1,6 +1,8 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# =============================================================================
+# nuclearsafety.net — SCORM training platform
+# =============================================================================
 
-# dependencies
+# --- Dependencies -------------------------------------------------------------
 /node_modules
 /.pnp
 .pnp.*
@@ -10,38 +12,74 @@
 !.yarn/releases
 !.yarn/versions
 
-# testing
-/coverage
-
-# next.js
+# --- Build output -----------------------------------------------------------------
 /.next/
 /out/
-
-# production
 /build
+/dist
+*.tsbuildinfo
+next-env.d.ts
+.turbo
+.swc
 
-# misc
-.DS_Store
+# --- Environment & secrets (NEVER commit) ------------------------------------------
+# All configuration lives in .env (template: .env.example).
+.env
+.env.*
+!.env.example
 *.pem
+*.key
+*.crt
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+.npmrc
 
-# debug
+# --- Runtime data -----------------------------------------------------------------
+# Uploaded/extracted SCORM packages and temp uploads (back these up, never commit).
+/storage
+/storage-*
+# Raw SCORM ZIPs / course exports dropped into the repo by mistake.
+*.zip
+# Database dumps / backups
+*.sql.gz
+*.dump
+/backups
+# Generated migrations ARE committed (drizzle/*.sql) — do not ignore *.sql.
+
+# --- Logs & process managers --------------------------------------------------------
+logs
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+/app.log
+.pm2/
 
-# env files (can opt-in for committing if needed)
-.env*
+# --- Testing ----------------------------------------------------------------------
+/coverage
+/test-results
+/playwright-report
+/playwright/.cache
+.vitest
 
-# vercel
+# --- Editors / OS -----------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
+.idea/
+# Keep only the shared VS Code workspace files.
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# --- Local AI-assistant settings (per-developer permissions) -------------------------
+.claude/
+
+# --- Hosting ------------------------------------------------------------------------
 .vercel
-
-# typescript
-*.tsbuildinfo
-next-env.d.ts
-
-# allow the env template
-!.env.example
-
-# uploaded / extracted SCORM packages and temp uploads
-/storage
