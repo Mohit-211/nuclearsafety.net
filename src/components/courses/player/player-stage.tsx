@@ -1,24 +1,46 @@
+'use client';
+
+import { useRef } from 'react';
 import { AlertTriangle, ArrowRight, CheckCircle2, Loader2, PlayCircle, RotateCcw, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { PlayerCourse, PlayerPhase } from './types';
+import { useContentReady } from './use-content-ready';
 
 export type StageView = 'intro' | 'loading' | 'playing' | 'closed' | 'error';
 
-export function PlayerStage({ course, phase, view, launchUrl, review, error, onStart, onReopen, onExit, onFrameError }: {
-  course: PlayerCourse; phase: PlayerPhase; view: StageView; launchUrl: string; review: boolean; error: string;
+/** Shown while the course runtime starts and over the frame until the content has painted. */
+function LoadingCard({ slow }: { slow: boolean }) {
+  return <div className="player-placeholder" role="status" aria-live="polite">
+    <span className="player-placeholder-icon"><Loader2 size={26} strokeWidth={1.6} className="animate-spin"/></span>
+    <h2>Loading your course…</h2>
+    <p>{slow
+      ? 'Still loading — courses with video and images can take a little longer, especially the first time. Thanks for your patience.'
+      : 'Getting everything ready. This usually takes a few seconds.'}</p>
+    <div className="player-loading-bar" aria-hidden="true"><span /></div>
+  </div>;
+}
+
+export function PlayerStage({ course, phase, view, launchUrl, review, error, zoom, onStart, onReopen, onExit, onFrameError }: {
+  course: PlayerCourse; phase: PlayerPhase; view: StageView; launchUrl: string; review: boolean; error: string; zoom: number;
   onStart: () => void; onReopen: () => void; onExit: () => void; onFrameError: () => void;
 }) {
+  const frameRef = useRef<HTMLIFrameElement>(null);
+  const { ready, elapsedMs } = useContentReady(frameRef, view === 'playing');
+
   if (view === 'playing') {
     return <main className="player-stage is-playing">
-      <iframe className="player-frame" src={launchUrl} title={`${course.title} course content`} allow="fullscreen; autoplay" allowFullScreen onError={onFrameError} />
+      <div className="player-frame-wrap">
+        {/* Zoom = scale the frame and enlarge/shrink its box inversely, so the content reflows like browser zoom. */}
+        <iframe ref={frameRef} className="player-frame" src={launchUrl} title={`${course.title} course content`}
+          allow="fullscreen; autoplay" allowFullScreen onError={onFrameError}
+          style={zoom === 1 ? undefined : { width: `${100 / zoom}%`, height: `${100 / zoom}%`, transform: `scale(${zoom})` }} />
+        {!ready && <div className="player-frame-loader"><LoadingCard slow={elapsedMs > 12_000} /></div>}
+      </div>
     </main>;
   }
 
   return <main className="player-stage">
-    {view === 'loading' && <div className="player-placeholder">
-      <span className="player-placeholder-icon"><Loader2 size={26} strokeWidth={1.6} className="animate-spin"/></span>
-      <h2>Loading course…</h2>
-    </div>}
+    {view === 'loading' && <LoadingCard slow={false} />}
 
     {view === 'error' && <div className="player-placeholder">
       <span className="player-placeholder-icon"><AlertTriangle size={26} strokeWidth={1.6}/></span>

@@ -9,6 +9,7 @@ import { PlayerTopbar } from './player-topbar';
 import { PlayerStage, type StageView } from './player-stage';
 import { PlayerNavbar } from './player-navbar';
 import type { PlayerCourse, PlayerLaunch, PlayerPhase } from './types';
+import { readStoredZoom, stepZoom, storeZoom } from './zoom';
 
 /** Learner-facing phase from runtime status (completion must not be a failed result). */
 function phaseFrom(s: RuntimeStatus, current: PlayerPhase): PlayerPhase {
@@ -32,6 +33,13 @@ export function CoursePlayer({ course, launch }: { course: PlayerCourse; launch:
   const [saveError, setSaveError] = useState(false);
   const [launchError, setLaunchError] = useState('');
   const [confirmExit, setConfirmExit] = useState(false);
+  // Only used once the learner starts the course (client-side), so reading storage here is hydration-safe.
+  const [zoom, setZoom] = useState(readStoredZoom);
+  const changeZoom = (direction: 1 | -1 | 0) => {
+    const next = direction === 0 ? 1 : stepZoom(zoom, direction);
+    setZoom(next);
+    storeZoom(next);
+  };
 
   const onStatus = useCallback((s: RuntimeStatus) => {
     setPhase(p => phaseFrom(s, p));
@@ -91,10 +99,10 @@ export function CoursePlayer({ course, launch }: { course: PlayerCourse; launch:
 
   return <div className="player-page">
     <PlayerTopbar course={course} phase={phase} progress={progress} onExit={requestExit} />
-    <PlayerStage course={course} phase={phase} view={view} launchUrl={launch.launchUrl} review={launch.review} error={launchError}
+    <PlayerStage course={course} phase={phase} view={view} launchUrl={launch.launchUrl} review={launch.review} error={launchError} zoom={zoom}
       onStart={() => setView('loading')} onReopen={() => window.location.reload()} onExit={exit}
       onFrameError={() => { setLaunchError('The course content could not be loaded.'); setView('error'); }} />
-    <PlayerNavbar view={view} phase={phase} savedAt={savedAt} saveError={saveError} review={launch.review} onExit={requestExit} />
+    <PlayerNavbar view={view} phase={phase} savedAt={savedAt} saveError={saveError} review={launch.review} zoom={zoom} onZoom={changeZoom} onExit={requestExit} />
     <p className="player-note"><ShieldCheck size={12}/> Your progress is saved automatically while you learn.</p>
     <ConfirmDialog open={confirmExit} onOpenChange={setConfirmExit} title="Exit course?"
       description="Your progress will be saved and you can resume where you left off." confirmLabel="Save and exit" cancelLabel="Keep learning" onConfirm={exit}/>

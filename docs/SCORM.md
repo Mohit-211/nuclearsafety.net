@@ -69,6 +69,21 @@ Verified end to end in the browser for **both** packages: upload via admin UI �
 invite → launch → initialise → bookmark → close tab → resume → pass quiz (100%) → Exit → Completed +
 score + certificate → review-only → retake request → admin approval → fresh ab-initio attempt.
 
+## Player UX and launch performance
+- **Loader:** while the content starts, the player shows a "Loading your course…" card over the frame
+  (`use-content-ready.ts`). It polls the same-origin frame tree (into scormdriver's inner frame) and hides as
+  soon as text/images/video render; after 12 s it adds a reassurance message; after 60 s it gives up and
+  reveals the frame regardless.
+- **Zoom:** −/100%/+ in the player's bottom bar (50–200%). Implemented by scaling the iframe with a CSS
+  transform and enlarging its box inversely, so content reflows like browser zoom and clicks still land
+  correctly. The chosen level is remembered per device (localStorage `ns-player-zoom`).
+- **Compression + caching** (`src/lib/scorm/compress.ts`, content route): JS/CSS/HTML/SVG/JSON are served
+  Brotli (q5) or gzip, cached compressed in memory (128 MB cap); non-HTML files are
+  `Cache-Control: private, max-age=2592000, immutable` (a new upload is a new version URL), HTML uses
+  `no-cache` + `Last-Modified`/304. Measured with the Rise package at 10 Mbps: bytes before first paint
+  5.7 MB → 1.4 MB, first launch 7.5 s → 4.4 s, repeat launch 2.5 s. The remaining time is the Rustici
+  driver's sequential frame loading and Rise start-up.
+
 ## Retakes
 A completed attempt is review-only. The learner can request a retake (course page); a platform admin, or
 the corporate admin of the learner's organization, approves/declines it (admin dashboard and learner page).

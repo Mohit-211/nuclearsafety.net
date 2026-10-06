@@ -8,6 +8,7 @@ import { sha256 } from '@/lib/auth/crypto';
 import { canAccessVersion } from '@/lib/services/attempts';
 import { resolvePackageFile } from '@/lib/scorm/storage';
 import { mimeType } from '@/lib/scorm/mime';
+import { compressedFile, isCompressible, pickEncoding } from '@/lib/scorm/compress';
 
 /*
  * Serves extracted SCORM package files to authorised users, same-origin with the
@@ -54,21 +55,38 @@ async function serve(request: NextRequest, ctx: RouteContext<'/scorm/[versionId]
   if (!info.isFile()) return notFound();
 
   const type = mimeType(filePath);
+  const lastModified = info.mtime.toUTCString();
   const headers = new Headers({
     'Content-Type': type,
     'Accept-Ranges': 'bytes',
-    'Last-Modified': info.mtime.toUTCString(),
-    // Package files are immutable per version; HTML is revalidated so launches stay fresh.
-    'Cache-Control': type.startsWith('text/html') ? 'private, no-cache' : 'private, max-age=3600',
+    'Last-Modified': lastModified,
+    // Files under /scorm/<versionId>/ never change (a new upload is a new version id), so the
+    // browser may keep them; HTML entry pages are still revalidated (cheap 304s).
+    'Cache-Control': type.startsWith('text/html') ? 'private, no-cache' : 'private, max-age=2592000, immutable',
+    'Vary': 'Accept-Encoding',
     'X-Content-Type-Options': 'nosniff',
     'Content-Security-Policy': "frame-ancestors 'self'",
     'Referrer-Policy': 'same-origin',
   });
 
+  const since = request.headers.get('if-modified-since');
+  if (since && !Number.isNaN(Date.parse(since)) && Math.floor(info.mtimeMs / 1000) <= Math.floor(Date.parse(since) / 1000)) {
+    return new Response(null, { status: 304, headers });
+  }
+
+  // Compress text assets (JS/CSS/HTML/SVG/JSON) unless a byte range was requested.
+  const range = request.headers.get('range');
+  const encoding = !range && isCompressible(type, info.size) ? pickEncoding(request.headers.get('accept-encoding')) : null;
+  if (encoding) {
+    const body = await compressedFile(filePath, info.mtimeMs, encoding);
+    headers.set('Content-Encoding', encoding);
+    headers.set('Content-Length', String(body.length));
+    return new Response(headOnly ? null : new Uint8Array(body), { status: 200, headers });
+  }
+
   let start = 0;
   let end = info.size - 1;
   let status = 200;
-  const range = request.headers.get('range');
   if (range && info.size > 0) {
     const m = /^bytes=(\d*)-(\d*)$/.exec(range.trim());
     if (!m || (m[1] === '' && m[2] === '')) {

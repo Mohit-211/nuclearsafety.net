@@ -36,6 +36,11 @@ _Last updated: 2026-10-07_
 - Fixes found by browser testing: React Compiler render-time crash on `/admin/courses` (enrollment
   dialog closure); login rate limiter now counts only failed attempts; favicon added.
 
+- **Player UX (2026-10-07).** Loading overlay until the course content renders, zoom controls
+  (50–200%, remembered per device), compressed + long-cached package assets (launch ~40% faster on
+  first visit; see `docs/SCORM.md`). Production now runs on port 3100 (`ecosystem.config.cjs`) and
+  `.env.example` is kept out of the repo (local copy only).
+
 ## In progress
 - Nothing mid-flight.
 
