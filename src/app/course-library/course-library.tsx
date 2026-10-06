@@ -1,0 +1,3 @@
+import { createFileRoute } from '@tanstack/react-router';
+import { CourseListPage } from '@/components/training/course-list-page';
+export const Route=createFileRoute('/course-library')({head:()=>({meta:[{title:'Course Library | nuclearsafety.net'},{name:'description',content:'Browse available nuclear safety training courses.'},{property:'og:title',content:'Course Library | nuclearsafety.net'},{property:'og:description',content:'Browse available nuclear safety training courses.'},{property:'og:type',content:'website'},{name:'twitter:card',content:'summary_large_image'}]}),component:()=> <CourseListPage library={true}/>});
