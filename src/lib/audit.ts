@@ -11,12 +11,13 @@ export type AuditAction =
   | 'course_version.uploaded' | 'course_version.activated'
   | 'assignment.created' | 'assignment.removed' | 'assignment.updated'
   | 'learner.course_started' | 'learner.course_completed' | 'learner.course_passed' | 'learner.course_failed'
+  | 'retake.requested' | 'retake.approved' | 'retake.declined'
   | 'settings.updated';
 
 export type AuditInput = {
   actorId: number | null;
   action: AuditAction;
-  entityType: 'user' | 'organization' | 'course' | 'course_version' | 'assignment' | 'attempt' | 'settings' | 'session';
+  entityType: 'user' | 'organization' | 'course' | 'course_version' | 'assignment' | 'attempt' | 'retake_request' | 'settings' | 'session';
   entityId?: number | null;
   subjectUserId?: number | null;
   courseId?: number | null;

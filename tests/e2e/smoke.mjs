@@ -202,6 +202,22 @@ check('corporate admin cannot deactivate outsider', r.ok === false);
 const carlCsv = await (await carl.req('/api/admin/reports/export')).text();
 check('corporate report scoped to own org', carlCsv.includes('Mia Member') && !carlCsv.includes('Lena Learner'));
 
+// ---- retake requests ----------------------------------------------------------------
+r = await learner.action('requestRetakeAction', [{ courseId, reason: 'Refresher' }], `/courses/${courseId}`);
+check('learner requests retake of completed course', r.ok === true, JSON.stringify(r));
+r = await learner.action('requestRetakeAction', [{ courseId }], `/courses/${courseId}`);
+check('duplicate pending request rejected', r.ok === false, r.error);
+const retakePlay = await (await learner.req(`/courses/${courseId}/play`)).text();
+check('still review mode while pending', /lesson_mode\\?":\\?"review/.test(retakePlay));
+const [[reqRow]] = await db.query("SELECT id FROM retake_requests WHERE status='pending' ORDER BY id DESC LIMIT 1");
+r = await carl.action('decideRetakeAction', [{ requestId: reqRow.id, approve: true }], '/admin');
+check('corporate admin cannot decide outsider retake', r.ok === false, r.error);
+r = await admin.action('decideRetakeAction', [{ requestId: reqRow.id, approve: true, note: 'ok' }], '/admin');
+check('platform admin approves retake', r.ok === true, JSON.stringify(r));
+const retakeHtml = await (await learner.req(`/courses/${courseId}/play`)).text();
+check('approved retake starts a fresh attempt', /entry\\?":\\?"ab-initio/.test(retakeHtml) && Number(retakeHtml.match(/attemptId\\?":(\d+)/)?.[1]) !== attemptId);
+check('certificate kept after retake approval', (await html(await learner.req('/certificates'))).includes('Smoke Course'));
+
 // ---- deactivation -----------------------------------------------------------------
 r = await admin.action('setUserStatusAction', [{ userId: learnerId, status: 'inactive' }], '/admin');
 check('deactivate learner', r.ok === true);

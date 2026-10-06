@@ -29,6 +29,11 @@ export type LearnerCourse = {
   lastActivityAt: number | null;
   modules: string[];
   canLaunch: boolean;
+  /** Retake request state for the current (completed) attempt. */
+  retake: 'none' | 'pending' | 'declined';
+  retakeNote: string | null;
+  /** The current attempt is an approved retake (attempt 2+). */
+  isRetake: boolean;
 };
 
 export type CertificateView = {

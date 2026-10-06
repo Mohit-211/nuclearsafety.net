@@ -8,6 +8,7 @@ import { applyAssignmentChanges, updateDueDate } from '@/lib/services/assignment
 import { createUser, inviteUser, setUserAccess, setUserStatus, updateUserDetails } from '@/lib/services/people';
 import { createOrganization, setCourseAccess, updateOrganization } from '@/lib/services/organizations';
 import { saveSettings, settingsSchema } from '@/lib/services/settings';
+import { decideRetake } from '@/lib/services/retakes';
 import { runAction, zEmail, zId, zName, zOptionalText, type ActionResult } from './result';
 
 /*
@@ -92,6 +93,17 @@ export async function updateDueDateAction(input: { userId: number; courseId: num
     const { user, scope } = await assertAdmin();
     const v = z.object({ userId: zId, courseId: zId, dueDate: zDueDate }).parse(input);
     await updateDueDate(scope, user.id, { userId: v.userId, courseId: v.courseId }, v.dueDate);
+    return done();
+  });
+}
+
+// ---- Retake requests (platform + corporate admins, scoped) -----------------------
+
+export async function decideRetakeAction(input: { requestId: number; approve: boolean; note?: string }): Promise<ActionResult> {
+  return runAction(async () => {
+    const { user, scope } = await assertAdmin();
+    const v = z.object({ requestId: zId, approve: z.boolean(), note: z.string().trim().max(500).optional() }).parse(input);
+    await decideRetake(scope, user.id, v.requestId, v.approve, v.note || null);
     return done();
   });
 }

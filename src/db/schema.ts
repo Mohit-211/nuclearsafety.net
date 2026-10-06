@@ -190,6 +190,30 @@ export const attempts = mysqlTable('attempts', {
   index('attempts_version_idx').on(t.versionId),
 ]);
 
+/**
+ * A learner's request to retake a completed course. Until an admin approves it the
+ * learner can only review the completed attempt; approval opens a new attempt.
+ */
+export const retakeRequests = mysqlTable('retake_requests', {
+  id: int('id').autoincrement().primaryKey(),
+  assignmentId: int('assignment_id').notNull().references(() => assignments.id),
+  userId: int('user_id').notNull().references(() => users.id),
+  courseId: int('course_id').notNull().references(() => courses.id),
+  /** The completed attempt the learner wants to redo. */
+  attemptId: int('attempt_id').notNull().references(() => attempts.id),
+  status: mysqlEnum('status', ['pending', 'approved', 'declined']).notNull().default('pending'),
+  reason: varchar('reason', { length: 500 }),
+  requestedAt: datetime('requested_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+  decidedBy: int('decided_by').references(() => users.id),
+  decidedAt: datetime('decided_at'),
+  decisionNote: varchar('decision_note', { length: 500 }),
+  /** Attempt created on approval. */
+  newAttemptId: int('new_attempt_id').references(() => attempts.id),
+}, t => [
+  index('retake_requests_status_idx').on(t.status, t.requestedAt),
+  index('retake_requests_assignment_idx').on(t.assignmentId),
+]);
+
 /** Append-only audit / activity log. */
 export const auditEvents = mysqlTable('audit_events', {
   id: bigint('id', { mode: 'number' }).autoincrement().primaryKey(),
@@ -223,3 +247,4 @@ export type Course = typeof courses.$inferSelect;
 export type CourseVersion = typeof courseVersions.$inferSelect;
 export type Assignment = typeof assignments.$inferSelect;
 export type Attempt = typeof attempts.$inferSelect;
+export type RetakeRequest = typeof retakeRequests.$inferSelect;

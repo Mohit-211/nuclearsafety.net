@@ -42,7 +42,7 @@ export function PlayerStage({ course, phase, view, launchUrl, review, error, onS
     {(view === 'intro' || view === 'closed') && phase === 'completed' && <div className="player-placeholder player-complete">
       <span className="player-placeholder-icon"><CheckCircle2 size={26} strokeWidth={1.6}/></span>
       <h2>Course completed</h2>
-      <p>{review && view === 'intro' ? 'You have completed this course. You can review it at any time — your result will not change.' : 'Well done. Your completion has been recorded and your certificate is available.'}</p>
+      <p>{review && view === 'intro' ? 'You have completed this course. You can review it at any time — your result will not change. To take it again, request a retake from the course page.' : 'Well done. Your completion has been recorded and your certificate is available.'}</p>
       <div className="flex gap-2 mt-5 flex-wrap justify-center">
         <Button variant="outline" onClick={view === 'intro' ? onStart : onReopen}><RotateCcw size={14}/>Review course</Button>
         <Button onClick={onExit}>Back to course</Button>

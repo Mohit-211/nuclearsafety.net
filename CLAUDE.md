@@ -47,13 +47,17 @@ All configuration lives in `.env` (template: `.env.example`).
 - No hard deletes of users/courses/assignments/attempts/versions; deactivate, archive, soft-remove.
 - Attempts are pinned to the package version they started on; activating a new version only affects new attempts.
 - Completion = SCORM completion AND not failed (`isCourseComplete`); completion and pass are sticky.
+- Completed attempts are review-only; a new attempt only via an approved retake request (`services/retakes.ts`).
+- React Compiler is on: closures passed as props are memoised by their dependencies, which are read
+  during render — never use `x!.prop` on possibly-undefined state inside such closures.
 - Audit sensitive changes via `audit()` (`src/lib/audit.ts`); learner activity feeds read `learner.*` events.
 - Client components import server actions directly; never import `@/db` or services into client code.
 - Add a migration for every schema change (`npm run db:generate`) and update `docs/DATA_MODEL.md`.
 - Keep `docs/ENDPOINTS.md` and `docs/PROGRESS.md` current after each slice. Document only what exists.
 
 ## Current state (2026-10-07)
-All blueprint phases 1–11 have a first implementation; unit tests (28) and an end-to-end smoke test
-(60 checks, real MySQL 8.4) pass. **Not yet done:** testing with the client's real SCORM 1.2/2004
-packages in a browser (they will be placed in the user's Downloads folder), production deploy.
+All blueprint phases 1–11 implemented, plus admin-approved retakes. Unit tests (30) and the e2e smoke
+test (67 checks, MySQL 8.4) pass. The client's Rise packages (SCORM 1.2 and 2004, in the user's Downloads:
+`operation-cleaning-training-scorm-*.zip`) were verified end to end in headless Chrome (see `docs/SCORM.md`).
+**Not yet done:** production deploy on the Contabo VPS; manual checks in other browsers.
 See `docs/PROGRESS.md` for the full Completed / Pending list and known limitations.

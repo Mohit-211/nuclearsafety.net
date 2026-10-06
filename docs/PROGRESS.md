@@ -25,26 +25,30 @@ _Last updated: 2026-10-07_
   scoped learner management and assignment.
 - **Phase 10 — Admin & reporting.** Platform/organization dashboards, activity feeds, reports with
   filters, CSV export (formula-injection safe), audit events, settings (support contact, default due window).
-- **Phase 11 (partial).** Security headers, nginx/PM2 examples, unit tests (28), e2e smoke test (60 checks)
+- **Phase 11 (partial).** Security headers, nginx/PM2 examples, unit tests (30), e2e smoke test (67 checks)
   run against MySQL 8.4 — all passing. See `docs/TESTING.md`.
+- **Real-package verification (2026-10-07).** Both client packages (Rise, SCORM 1.2 + 2004) uploaded via
+  the admin UI and played end-to-end in headless Chrome: initialise, bookmark, tab-close resume, quiz pass,
+  completion, score, certificate, review mode. Findings in `docs/SCORM.md`.
+- **Retakes (2026-10-07, user decision).** Completed courses are review-only; learners request a retake,
+  platform/corporate admins approve or decline (dashboard + learner page), approval opens a fresh attempt;
+  history and certificates kept; learner emailed. Migration `0001_retake_requests`.
+- Fixes found by browser testing: React Compiler render-time crash on `/admin/courses` (enrollment
+  dialog closure); login rate limiter now counts only failed attempts; favicon added.
 
 ## In progress
 - Nothing mid-flight.
 
 ## Blocked
-- **Real-package verification** — waiting for the client's SCORM 1.2 and SCORM 2004 packages
-  (user will place them in Downloads). Needed to confirm launch path, resume behaviour of
-  `scormdriver`/`AutoBookmark.js`, completion/score reporting and `CourseExit.js` behaviour in a browser.
 - **Production deploy** — needs VPS access, `.env` with MySQL credentials and SMTP settings.
 
 ## Pending
-1. Upload both supplied packages, play them in Chrome/Firefox/Safari/Edge, verify: initialise, commit,
-   suspend/resume, completion, score, exit button, closing the tab mid-course. Record findings in `docs/SCORM.md`.
-2. Deploy to the VPS (`docs/DEPLOYMENT.md`), run `db:migrate` + `db:seed-admin`, configure SMTP, smoke-test.
-3. Decide whether learners need a "start a new attempt / retake" action after completion.
+1. Deploy to the VPS (`docs/DEPLOYMENT.md`), run `db:migrate` + `db:seed-admin`, configure SMTP, smoke-test.
+2. Manual check of the packages in Firefox/Safari/Edge and on mobile (automated run used Chrome only).
+3. Decide which of the two packages to use in production (both work; 2004 additionally reports scaled score).
 4. Resources page: replace placeholder entries with real documents (or remove the page).
-5. Optional: PDF certificates, email notifications for assignments/due dates, multi-SCO sequencing,
-   per-organization reporting exports for platform admins, DB-backed rate limiting if ever clustered.
+5. Optional: PDF certificates, email notifications for assignments/due dates/new retake requests,
+   multi-SCO sequencing, DB-backed rate limiting if ever clustered.
 
 ## Known limitations
 - Multi-SCO packages: only the first SCO is launched (upload shows a warning).

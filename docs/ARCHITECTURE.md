@@ -43,7 +43,9 @@ SHA-256 of a random 256-bit token; cookie `ns_session`, httpOnly, SameSite=Lax, 
 account invites use one-time hashed tokens (`password_tokens`, 2 h / 72 h) emailed via SMTP
 (nodemailer) — printed to the server console when SMTP is not configured. Password change/reset
 revokes other sessions; deactivation revokes all sessions. Accounts are admin-created only
-(no public sign-up — decision 2026-10-07). Login and reset are rate-limited in memory (per IP and per email).
+(no public sign-up — decision 2026-10-07). Login is rate-limited in memory on **failed** attempts only
+(8 per email / 50 per IP per 15 min) so shared office networks are not locked out; reset requests are
+rate-limited per IP and email.
 
 ## SCORM content serving and isolation
 Content is served from the **same origin** under `/scorm/<versionId>/…` because SCORM content locates
@@ -55,7 +57,8 @@ admins); responses carry `X-Content-Type-Options: nosniff`, `frame-ancestors 'se
 move content to a separate origin and use scorm-again's cross-frame API (see `docs/SCORM.md`).
 
 ## Deviations from the blueprint
-- None in technology. Notable product decisions: admin-created accounts only; a user belongs to at
+- None in technology. Notable product decisions: admin-created accounts only; retakes of completed
+  courses require admin approval (until then review-only); a user belongs to at
   most one organization; certificates are an on-screen/printable record (no PDF generation);
   only the first SCO of multi-SCO packages is launched (sequencing not implemented — the supplied
   Rise-style packages are single-SCO).

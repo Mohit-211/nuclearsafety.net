@@ -9,7 +9,7 @@ import { audit } from '@/lib/audit';
 import { dummyPasswordHash, hashPassword, passwordProblem, verifyPassword } from '@/lib/auth/crypto';
 import { assertUser, loadPrincipal } from '@/lib/auth/current-user';
 import { adminScopeFor } from '@/lib/auth/policy';
-import { rateLimit } from '@/lib/auth/rate-limit';
+import { hit, isLimited, rateLimit, resetLimit } from '@/lib/auth/rate-limit';
 import { createSession, destroyCurrentSession, destroyUserSessions } from '@/lib/auth/session';
 import { findValidToken, sendPasswordLink } from '@/lib/services/password-tokens';
 import { runAction, UserError, zEmail, zOptionalText, type ActionResult } from './result';
@@ -26,13 +26,21 @@ export async function login(input: z.input<typeof loginSchema>): Promise<ActionR
   return runAction(async () => {
     const { email, password, remember } = loginSchema.parse(input);
     const ip = await clientIp();
-    if (!rateLimit(`login:ip:${ip}`, 30, 15 * 60_000) || !rateLimit(`login:email:${email}`, 8, 15 * 60_000)) {
-      throw new UserError('Too many sign-in attempts. Please wait a few minutes and try again.');
+    // Only FAILED attempts count, so busy shared networks and repeat sign-ins are never locked out.
+    const ipKey = `login:fail:ip:${ip}`;
+    const emailKey = `login:fail:email:${email}`;
+    if (isLimited(ipKey, 50) || isLimited(emailKey, 8)) {
+      throw new UserError('Too many failed sign-in attempts. Please wait 15 minutes or reset your password.');
     }
     const [user] = await db().select().from(schema.users).where(eq(schema.users.email, email)).limit(1);
     const valid = user ? await verifyPassword(password, user.passwordHash) : (await verifyPassword(password, await dummyPasswordHash()), false);
     const principal = user && valid ? await loadPrincipal(user.id) : null;
-    if (!principal) throw new UserError('The email or password is incorrect, or the account is inactive.');
+    if (!principal) {
+      hit(ipKey, 15 * 60_000);
+      hit(emailKey, 15 * 60_000);
+      throw new UserError('The email or password is incorrect, or the account is inactive.');
+    }
+    resetLimit(emailKey);
 
     await createSession(principal.id, remember);
     await db().update(schema.users).set({ lastLoginAt: new Date() }).where(eq(schema.users.id, principal.id));

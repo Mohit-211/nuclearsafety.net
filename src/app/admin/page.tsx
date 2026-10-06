@@ -8,6 +8,8 @@ import { requireAdmin } from "@/lib/auth/current-user";
 import { formatLongDate } from "@/lib/format";
 import { pageMetadata } from "@/lib/metadata";
 import { adminOverview } from "@/lib/services/reports";
+import { pendingRetakes } from "@/lib/services/retakes";
+import { RetakeRequestsPanel } from "@/components/admin/retakes/retake-requests-panel";
 
 export const metadata: Metadata = pageMetadata(
   "Admin Dashboard",
@@ -16,7 +18,7 @@ export const metadata: Metadata = pageMetadata(
 
 export default async function AdminDashboardPage() {
   const { scope } = await requireAdmin();
-  const overview = await adminOverview(scope);
+  const [overview, retakes] = await Promise.all([adminOverview(scope), pendingRetakes(scope)]);
   const where = scope.kind === "platform" ? "across the platform" : `across ${scope.organizationName}`;
 
   return (
@@ -32,7 +34,8 @@ export default async function AdminDashboardPage() {
           { label: "Completion rate", value: `${overview.completionRate}%`, note: "Across all current assignments", icon: TrendingUp, tone: "warning" },
         ]}
       />
-      <CourseProgressTable rows={overview.courses} />
+      <RetakeRequestsPanel rows={retakes} showOrganization={scope.kind === "platform"} />
+      <div className={retakes.length ? "training-section" : undefined}><CourseProgressTable rows={overview.courses} /></div>
       <RecentActivityTable rows={overview.activity} />
     </>
   );

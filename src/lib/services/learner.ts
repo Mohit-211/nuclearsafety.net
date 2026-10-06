@@ -7,6 +7,7 @@ import type { PackageInfo } from '@/lib/scorm/manifest';
 import { formatDate } from '@/lib/format';
 import type { CertificateView, LearnerActivityItem, LearnerCourse } from '@/lib/types';
 import { loadEnrollments, summarize, type EnrollmentRecord } from './enrollments';
+import { retakeStatusByAssignment, type RetakeStatus } from './retakes';
 
 /** Module titles from a package manifest (launchable / titled items). */
 export function moduleTitles(manifest: unknown): string[] {
@@ -24,8 +25,13 @@ async function manifestsFor(versionIds: number[]) {
   return new Map(rows.map(r => [r.id, r.manifest]));
 }
 
-function toLearnerCourse(r: EnrollmentRecord, manifest: unknown): LearnerCourse {
+type RetakeInfo = Awaited<ReturnType<typeof retakeStatusByAssignment>>;
+
+function toLearnerCourse(r: EnrollmentRecord, manifest: unknown, retakes: RetakeInfo): LearnerCourse {
   const s = summarize(r);
+  // A request only applies to the attempt it was made for (approval opens a new attempt).
+  const req = retakes.get(r.assignmentId);
+  const retake: RetakeStatus = req && r.attempt && req.attemptId === r.attempt.id ? req.status : 'none';
   return {
     id: r.courseId,
     code: r.courseCode,
@@ -47,6 +53,9 @@ function toLearnerCourse(r: EnrollmentRecord, manifest: unknown): LearnerCourse 
     modules: moduleTitles(manifest),
     // Resuming works on the attempt's own version; new attempts need an active version.
     canLaunch: !!(r.attempt?.versionId ?? r.activeVersionId),
+    retake: retake === 'approved' ? 'none' : retake,
+    retakeNote: retake === 'declined' ? req?.decisionNote ?? null : null,
+    isRetake: (r.attempt?.attemptNumber ?? 1) > 1,
   };
 }
 
@@ -54,7 +63,8 @@ function toLearnerCourse(r: EnrollmentRecord, manifest: unknown): LearnerCourse 
 export const myCourses = cache(async (userId: number): Promise<LearnerCourse[]> => {
   const rows = await loadEnrollments({ userIds: [userId], publishedOnly: true });
   const manifests = await manifestsFor(rows.map(r => r.attempt?.versionId ?? r.activeVersionId).filter((v): v is number => !!v));
-  return rows.map(r => toLearnerCourse(r, manifests.get(r.attempt?.versionId ?? r.activeVersionId ?? -1)));
+  const retakes = await retakeStatusByAssignment(rows.map(r => r.assignmentId));
+  return rows.map(r => toLearnerCourse(r, manifests.get(r.attempt?.versionId ?? r.activeVersionId ?? -1), retakes));
 });
 
 /** One assigned course, or null if the learner is not assigned to it (or it is not published). */
@@ -63,7 +73,7 @@ export async function myCourse(userId: number, courseId: number): Promise<Learne
   if (!row) return null;
   const versionId = row.attempt?.versionId ?? row.activeVersionId;
   const manifests = await manifestsFor(versionId ? [versionId] : []);
-  return toLearnerCourse(row, versionId ? manifests.get(versionId) : null);
+  return toLearnerCourse(row, versionId ? manifests.get(versionId) : null, await retakeStatusByAssignment([row.assignmentId]));
 }
 
 /**

@@ -15,6 +15,7 @@ apply with `npm run db:migrate`; never edit an applied migration). All datetimes
 | `organization_courses` | Courses an organization may assign | unique (org, course) |
 | `assignments` | Learner ↔ course enrollment, due date, org context, assigner; soft removal `removed_at` | unique (user, course) |
 | `attempts` | SCORM attempt pinned to `version_id`; normalised completion/success/score/progress/location/time + last `cmi` JSON for resume | unique (assignment, attempt_number) |
+| `retake_requests` | Learner request to retake a completed attempt: status pending/approved/declined, reason, decider, note, `new_attempt_id` created on approval | index (status, requested_at), assignment |
 | `audit_events` | Append-only audit + activity log (actor, action, entity, subject user, course, org, metadata) | index created_at, subject, org |
 | `platform_settings` | Key/value JSON settings (supportEmail, supportMessage, defaultDueDays) | PK key |
 
@@ -24,5 +25,8 @@ apply with `npm run db:migrate`; never edit an applied migration). All datetimes
   otherwise Not started.
 - Completion and a pass are sticky (`cmi.ts#mergeOutcome`).
 - Removing an assignment keeps its attempts; re-assigning reactivates the same row.
+- A completed attempt is review-only; only an approved `retake_requests` row creates a further attempt.
+  Learner status follows the latest attempt; certificates come from any completed attempt.
+- Migrations: `0000_init`, `0001_retake_requests`.
 - New versions never change existing attempts; `courses.active_version_id` only affects new attempts.
 - `courses.active_version_id` intentionally has no FK (circular reference); integrity enforced in `activateVersion`.

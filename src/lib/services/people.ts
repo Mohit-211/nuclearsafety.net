@@ -102,11 +102,14 @@ const actionLabels: Record<string, [string, ActivityRow['status']]> = {
   'learner.course_failed': ['Failed assessment', 'Failed'],
   'assignment.created': ['Course assigned', 'Info'],
   'assignment.removed': ['Assignment removed', 'Info'],
+  'retake.requested': ['Requested retake', 'Info'],
+  'retake.approved': ['Retake approved', 'In progress'],
+  'retake.declined': ['Retake declined', 'Info'],
 };
 
 /** Learner activity (starts, completions, results, assignments) within a scope. */
 export async function activityFeed(scope: AdminScope, opts: { userId?: number; courseId?: number; limit: number }): Promise<ActivityRow[]> {
-  const where: SQL[] = [or(like(schema.auditEvents.action, 'learner.%'), inArray(schema.auditEvents.action, ['assignment.created', 'assignment.removed']))!];
+  const where: SQL[] = [or(like(schema.auditEvents.action, 'learner.%'), inArray(schema.auditEvents.action, ['assignment.created', 'assignment.removed', 'retake.requested', 'retake.approved', 'retake.declined']))!];
   if (opts.userId) where.push(eq(schema.auditEvents.subjectUserId, opts.userId));
   if (opts.courseId) where.push(eq(schema.auditEvents.courseId, opts.courseId));
   if (scope.kind === 'organization') where.push(eq(schema.organizationMembers.organizationId, scope.organizationId));

@@ -14,12 +14,17 @@ data scoped), **platform** (platform admin only). All implemented unless marked 
 ## Server Actions — `src/lib/actions/auth.ts`
 | Action | Purpose | Auth |
 |---|---|---|
-| `login({email,password,remember})` | Sign in, create session; returns `redirectTo` | public (rate-limited) |
+| `login({email,password,remember})` | Sign in, create session; returns `redirectTo` | public (failed attempts limited: 8/email, 50/IP per 15 min) |
 | `logout()` | Delete session, redirect `/login` | user |
 | `requestPasswordReset({email})` | Email reset (or invite) link; always reports success | public (rate-limited) |
 | `resetPassword({token,password,confirm})` | Set password from reset/invite token; revokes sessions | public (token) |
 | `changePassword({current,password,confirm})` | Change own password; signs out other devices | user |
 | `updateOwnProfile({name,jobTitle,department})` | Edit own profile (email/org are admin-managed) | user |
+
+## Server Actions — `src/lib/actions/learner.ts`
+| Action | Purpose | Auth |
+|---|---|---|
+| `requestRetakeAction({courseId, reason?})` | Request a retake of a completed course (one pending request at a time) | user (own assignment) |
 
 ## Server Actions — `src/lib/actions/admin.ts`
 | Action | Purpose | Auth |
@@ -29,6 +34,7 @@ data scoped), **platform** (platform admin only). All implemented unless marked 
 | `activateVersionAction` | Make a package version active for new attempts | platform |
 | `saveCourseEnrollmentAction({courseId, add, remove, dueDate})` | Assign/unassign learners to a course | admin (policy: granted course, own org members) |
 | `saveLearnerEnrollmentAction({userId, add, remove, dueDate})` | Assign/unassign courses to a learner | admin (same policy) |
+| `decideRetakeAction({requestId, approve, note?})` | Approve (opens new attempt on active version) or decline a retake request; emails learner | admin (scoped to own org members) |
 | `updateDueDateAction` | Change an assignment's due date | admin (scoped) — no UI yet |
 | `createUserAction` | Create account + send invite. Corporate admins: forced to own org, member role | admin |
 | `updateUserAction` | Edit name/email/job title/department | admin (scoped) |

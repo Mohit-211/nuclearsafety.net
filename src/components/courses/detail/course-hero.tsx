@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { statusClass } from '@/lib/format';
 import type { LearnerCourse } from '@/lib/types';
 import { CoursePhoto } from '../course-photo';
+import { RetakeRequest } from './retake-request';
 
 export function CourseHero({ course }: { course: LearnerCourse }) {
   const started = course.status !== 'Not started';
@@ -22,7 +23,9 @@ export function CourseHero({ course }: { course: LearnerCourse }) {
         {course.due && <span><CalendarDays size={13}/>Due {course.due}</span>}
       </div>
       <div className="featured-footer">
-        <span className="text-[10px] text-muted-foreground">{started ? 'Your progress is saved automatically' : 'Opens in the course player'}</span>
+        <span className="text-[10px] text-muted-foreground">{course.status === 'Completed' ? 'Completed courses open in review mode' : course.isRetake ? 'Retake approved — this is a fresh attempt' : started ? 'Your progress is saved automatically' : 'Opens in the course player'}</span>
+        <div className="flex items-center gap-2 flex-wrap">
+        <RetakeRequest course={course} />
         {course.canLaunch
           ? <Button asChild>
             <Link href={`/courses/${course.id}/play`}>
@@ -30,6 +33,7 @@ export function CourseHero({ course }: { course: LearnerCourse }) {
             </Link>
           </Button>
           : <span className="badge">Content not yet available</span>}
+        </div>
       </div>
     </div>
   </article>;

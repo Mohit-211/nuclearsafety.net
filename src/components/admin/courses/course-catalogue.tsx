@@ -33,6 +33,8 @@ export function CourseCatalogue({ rows: allRows, canManageCatalogue, learnerOpti
 
   const closeDialog = (open: boolean) => { if (!open) setDialog(null); };
   const managed = dialog?.kind === 'manage' ? dialog.row : undefined;
+  // Read during render by the React Compiler's memoisation, so it must be safe when nothing is selected.
+  const managedId = managed?.id ?? 0;
 
   return <>
     <PageHeading title="Course catalogue" subtitle={canManageCatalogue ? 'Upload SCORM packages, manage course details and assign learners.' : 'Courses available to your organization. Assign them to your learners.'}>
@@ -51,7 +53,7 @@ export function CourseCatalogue({ rows: allRows, canManageCatalogue, learnerOpti
     {canManageCatalogue && <PackageUploadDialog open={dialog?.kind === 'upload'} onOpenChange={closeDialog} />}
     <EnrollmentDialog open={!!managed} onOpenChange={closeDialog} noun="learner" subject={managed?.title ?? ''}
       enrolled={managed ? enrolledByCourse[managed.id] ?? [] : []} available={learnerOptions} defaultDueDate={defaultDueDate}
-      save={diff => saveCourseEnrollmentAction({ courseId: managed!.id, ...diff })} />
+      save={diff => saveCourseEnrollmentAction({ courseId: managedId, ...diff })} />
 
     {!canManageCatalogue && <SampleNote>Your platform administrator controls which courses your organization can use.</SampleNote>}
   </>;
