@@ -1,0 +1,14 @@
+{
+  "recommendations": [
+    "dbaeumer.vscode-eslint",
+    "bradlc.vscode-tailwindcss",
+    "esbenp.prettier-vscode",
+    "WallabyJs.quokka-vscode",
+    "azemoh.one-monokai",
+    "xabikos.JavaScriptSnippets",
+    "kisstkondoros.vscode-gutter-preview",
+    "naumovs.color-highlight",
+    "formulahendry.auto-rename-tag",
+    "formulahendry.auto-close-tag"
+  ]
+}
