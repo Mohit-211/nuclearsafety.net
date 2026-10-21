@@ -7,6 +7,7 @@ import { formatDate } from '@/lib/format';
 import type { PackageInfo } from '@/lib/scorm/manifest';
 import type { AdminCourseRow, CourseStatusLabel, EnrollmentRow } from '@/lib/types';
 import { UserError } from '@/lib/actions/result';
+import { adminCertificateHref, certificateKey, latestCertificates } from './certificates';
 import { averageProgress, loadEnrollments, scopeFilter, summarize } from './enrollments';
 import { moduleTitles } from './learner';
 
@@ -93,13 +94,16 @@ export async function getAdminCourse(scope: AdminScope, courseId: number) {
   }
 
   const enrollments = await loadEnrollments({ ...scopeFilter(scope), courseIds: [courseId] });
+  const certificates = await latestCertificates({ userIds: enrollments.map(e => e.userId), courseIds: [courseId] });
   const enrollmentRows: EnrollmentRow[] = enrollments.map(e => {
     const s = summarize(e);
+    const certificate = certificates.get(certificateKey(e.userId, courseId));
     return {
       userId: e.userId, learner: e.userName, email: e.userEmail, department: e.userDepartment ?? '—',
       organization: e.organizationName ?? null,
       enrolledOn: formatDate(e.assignedAt), due: e.dueDate ? formatDate(e.dueDate) : null,
       progress: s.progress, score: s.score, status: s.status,
+      certificate: certificate ? { number: certificate.number, href: adminCertificateHref(certificate.id) } : null,
     };
   });
 

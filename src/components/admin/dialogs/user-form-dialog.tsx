@@ -6,6 +6,8 @@ import { Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { SuccessView } from '@/components/shared/success-view';
+import { CredentialsView } from '@/components/admin/shared/credentials-view';
+import { PasswordField } from '@/components/admin/shared/password-field';
 import { useAction } from '@/hooks/use-action';
 import { createUserAction, setUserAccessAction, updateUserAction } from '@/lib/actions/admin';
 import type { Option } from '@/lib/types';
@@ -45,7 +47,7 @@ function AccessFields({ type, setType, orgId, setOrgId, organizations, busy, err
 type Details = { name: string; email: string; jobTitle: string; department: string };
 const blank: Details = { name: '', email: '', jobTitle: '', department: '' };
 
-/** Create a user (sends an invite email) or edit an existing user's details. */
+/** Create a user (with a password to share, or an invite email) or edit an existing user's details. */
 export function UserFormDialog({ open, onOpenChange, mode, userId, initial, organizations, fixedOrganization, canSetAccess }: {
   open: boolean; onOpenChange: (o: boolean) => void; mode: 'create' | 'edit'; userId?: number; initial?: Details;
   /** Platform admins: organizations to choose from. */
@@ -59,16 +61,17 @@ export function UserFormDialog({ open, onOpenChange, mode, userId, initial, orga
   const [type, setType] = useState<AccountType>(fixedOrganization ? 'member' : 'individual');
   const [orgId, setOrgId] = useState(fixedOrganization ? String(fixedOrganization.id) : '');
   const [orgError, setOrgError] = useState('');
+  const [password, setPassword] = useState('');
   const action = useAction(async (v: Details) => {
     if (mode === 'edit') return updateUserAction({ userId: userId!, ...v });
     const access = canSetAccess ? accountTypeToAccess(type, orgId ? Number(orgId) : null) : { platformRole: 'learner' as const, organizationId: fixedOrganization?.id ?? null, orgRole: 'member' as const };
-    return createUserAction({ ...v, ...access });
+    return createUserAction({ ...v, ...access, password });
   });
 
   const [wasOpen, setWasOpen] = useState(open);
   if (open !== wasOpen) {
     setWasOpen(open);
-    if (open) { setValues(initial ?? blank); setType(fixedOrganization ? 'member' : 'individual'); setOrgId(fixedOrganization ? String(fixedOrganization.id) : ''); setOrgError(''); action.reset(); }
+    if (open) { setValues(initial ?? blank); setType(fixedOrganization ? 'member' : 'individual'); setOrgId(fixedOrganization ? String(fixedOrganization.id) : ''); setOrgError(''); setPassword(''); action.reset(); }
   }
 
   const set = (k: keyof Details, v: string) => setValues(s => ({ ...s, [k]: v }));
@@ -82,17 +85,20 @@ export function UserFormDialog({ open, onOpenChange, mode, userId, initial, orga
   };
 
   const result = action.state === 'success';
+  const done = () => { onOpenChange(false); router.refresh(); };
   return <Dialog open={open} onOpenChange={o => !busy && onOpenChange(o)}>
     <DialogContent className="modal-content">
-      {result
+      {result && mode === 'create' && password
+        ? <CredentialsView title="Account created" name={values.name} email={values.email} password={password} onClose={done} />
+        : result
         ? <SuccessView title={mode === 'create' ? 'Account created' : 'Changes saved'}
           text={mode === 'create' ? `An email with a link to set a password has been sent to ${values.email}.` : 'The learner details have been updated.'}
-          onClose={() => { onOpenChange(false); router.refresh(); }} />
+          onClose={done} />
         : <form onSubmit={submit} noValidate>
           <DialogHeader>
             <DialogTitle>{mode === 'create' ? 'Add user' : 'Edit learner'}</DialogTitle>
             <DialogDescription>{mode === 'create'
-              ? fixedOrganization ? `New account in ${fixedOrganization.name}. They will receive an email to set their password.` : 'They will receive an email to set their password.'
+              ? `${fixedOrganization ? `New account in ${fixedOrganization.name}. ` : ''}Set a password to share with them, or leave it empty to email them an invite.`
               : 'Update name and contact details.'}</DialogDescription>
           </DialogHeader>
           <div className="form-stack">
@@ -116,11 +122,13 @@ export function UserFormDialog({ open, onOpenChange, mode, userId, initial, orga
               <select id="uf-role" className="course-select form-select" value={type} onChange={e => setType(e.target.value as AccountType)} disabled={busy}>
                 <option value="member">Learner</option><option value="org_admin">Corporate admin</option>
               </select></div>}
+            {mode === 'create' && <PasswordField id="uf-password" value={password} onChange={setPassword} disabled={busy} error={fe.password}
+              hint="Leave empty to email them a link to set their own password instead." />}
           </div>
           {action.error && !Object.keys(fe).length && <p className="form-error mt-3" role="alert">{action.error}</p>}
           <DialogFooter className="mt-6 gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>Cancel</Button>
-            <Button type="submit" disabled={busy}>{busy ? <><Loader2 className="animate-spin" />Saving…</> : mode === 'create' ? 'Create & send invite' : 'Save changes'}</Button>
+            <Button type="submit" disabled={busy}>{busy ? <><Loader2 className="animate-spin" />Saving…</> : mode === 'edit' ? 'Save changes' : password ? 'Create account' : 'Create & send invite'}</Button>
           </DialogFooter>
         </form>}
     </DialogContent>

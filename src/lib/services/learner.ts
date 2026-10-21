@@ -2,10 +2,10 @@ import 'server-only';
 import { cache } from 'react';
 import { and, desc, eq, inArray, like } from 'drizzle-orm';
 import { db, schema } from '@/db';
-import { isCourseComplete, scorePercent } from '@/lib/scorm/cmi';
 import type { PackageInfo } from '@/lib/scorm/manifest';
 import { formatDate } from '@/lib/format';
 import type { CertificateView, LearnerActivityItem, LearnerCourse } from '@/lib/types';
+import { certificateHref, certificateKey, latestCertificates } from './certificates';
 import { loadEnrollments, summarize, type EnrollmentRecord } from './enrollments';
 import { retakeStatusByAssignment, type RetakeStatus } from './retakes';
 
@@ -27,7 +27,10 @@ async function manifestsFor(versionIds: number[]) {
 
 type RetakeInfo = Awaited<ReturnType<typeof retakeStatusByAssignment>>;
 
-function toLearnerCourse(r: EnrollmentRecord, manifest: unknown, retakes: RetakeInfo): LearnerCourse {
+/** The learner's latest certificate per course (memoised per request). */
+const userCertificates = cache((userId: number) => latestCertificates({ userIds: [userId] }));
+
+function toLearnerCourse(r: EnrollmentRecord, manifest: unknown, retakes: RetakeInfo, certificates: Awaited<ReturnType<typeof userCertificates>>): LearnerCourse {
   const s = summarize(r);
   // A request only applies to the attempt it was made for (approval opens a new attempt).
   const req = retakes.get(r.assignmentId);
@@ -56,6 +59,7 @@ function toLearnerCourse(r: EnrollmentRecord, manifest: unknown, retakes: Retake
     retake: retake === 'approved' ? 'none' : retake,
     retakeNote: retake === 'declined' ? req?.decisionNote ?? null : null,
     isRetake: (r.attempt?.attemptNumber ?? 1) > 1,
+    certificateHref: certificates.has(certificateKey(r.userId, r.courseId)) ? certificateHref(r.courseId) : null,
   };
 }
 
@@ -64,7 +68,8 @@ export const myCourses = cache(async (userId: number): Promise<LearnerCourse[]> 
   const rows = await loadEnrollments({ userIds: [userId], publishedOnly: true });
   const manifests = await manifestsFor(rows.map(r => r.attempt?.versionId ?? r.activeVersionId).filter((v): v is number => !!v));
   const retakes = await retakeStatusByAssignment(rows.map(r => r.assignmentId));
-  return rows.map(r => toLearnerCourse(r, manifests.get(r.attempt?.versionId ?? r.activeVersionId ?? -1), retakes));
+  const certificates = await userCertificates(userId);
+  return rows.map(r => toLearnerCourse(r, manifests.get(r.attempt?.versionId ?? r.activeVersionId ?? -1), retakes, certificates));
 });
 
 /** One assigned course, or null if the learner is not assigned to it (or it is not published). */
@@ -73,33 +78,17 @@ export async function myCourse(userId: number, courseId: number): Promise<Learne
   if (!row) return null;
   const versionId = row.attempt?.versionId ?? row.activeVersionId;
   const manifests = await manifestsFor(versionId ? [versionId] : []);
-  return toLearnerCourse(row, versionId ? manifests.get(versionId) : null, await retakeStatusByAssignment([row.assignmentId]));
+  return toLearnerCourse(row, versionId ? manifests.get(versionId) : null, await retakeStatusByAssignment([row.assignmentId]), await userCertificates(userId));
 }
 
 /**
- * Certificates: one per course with a completed attempt. Kept even if the course
- * was later archived or the assignment removed — completion history is permanent.
+ * Certificates: the latest per course, newest first. Kept even if the course was
+ * later archived or the assignment removed — completion history is permanent.
  */
-export async function myCertificates(user: { id: number; name: string }): Promise<CertificateView[]> {
-  const rows = await db()
-    .select({
-      courseId: schema.courses.id, code: schema.courses.code, title: schema.courses.title,
-      completionStatus: schema.attempts.completionStatus, successStatus: schema.attempts.successStatus,
-      completedAt: schema.attempts.completedAt,
-      scoreRaw: schema.attempts.scoreRaw, scoreMin: schema.attempts.scoreMin, scoreMax: schema.attempts.scoreMax, scoreScaled: schema.attempts.scoreScaled,
-    })
-    .from(schema.attempts)
-    .innerJoin(schema.courses, eq(schema.courses.id, schema.attempts.courseId))
-    .where(and(eq(schema.attempts.userId, user.id), eq(schema.attempts.completionStatus, 'completed')))
-    .orderBy(desc(schema.attempts.completedAt));
-  const seen = new Set<number>();
-  const out: CertificateView[] = [];
-  for (const r of rows) {
-    if (seen.has(r.courseId) || !isCourseComplete(r)) continue;
-    seen.add(r.courseId);
-    out.push({ courseId: r.courseId, code: r.code, title: r.title, learnerName: user.name, awardedOn: formatDate(r.completedAt), score: scorePercent(r) });
-  }
-  return out;
+export async function myCertificates(userId: number): Promise<CertificateView[]> {
+  return [...(await userCertificates(userId)).values()].map(c => ({
+    id: c.id, courseId: c.courseId, title: c.courseTitle, number: c.number, awardedOn: formatDate(c.completedAt), href: certificateHref(c.courseId),
+  }));
 }
 
 const activityKinds: Record<string, LearnerActivityItem['kind']> = {

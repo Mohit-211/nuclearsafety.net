@@ -14,7 +14,9 @@ import { statusClass } from "@/lib/format";
 import { pageMetadata, unavailableMetadata } from "@/lib/metadata";
 import { defaultDueDate } from "@/lib/services/admin-pages";
 import { getAdminCourse } from "@/lib/services/catalogue";
+import { pendingCertificates } from "@/lib/services/certificates";
 import { learnerOptions } from "@/lib/services/people";
+import { PendingCertificatesPanel } from "@/components/admin/certificates/pending-certificates-panel";
 
 async function load(scope: AdminScope, params: Promise<{ courseId: string }>) {
   const id = Number((await params).courseId);
@@ -36,7 +38,7 @@ export default async function AdminCourseDetailPage({ params }: PageProps<"/admi
   if (!data) notFound();
   const { course, activeVersion, stats, enrollments, versions, organizations } = data;
   const manage = canManageCatalogue(scope);
-  const [learners, due] = await Promise.all([learnerOptions(scope), defaultDueDate()]);
+  const [learners, due, certificates] = await Promise.all([learnerOptions(scope), defaultDueDate(), pendingCertificates(scope, { courseId: course.id })]);
 
   return (
     <>
@@ -98,6 +100,7 @@ export default async function AdminCourseDetailPage({ params }: PageProps<"/admi
       </div>
 
       {manage && <CourseVersionsTable courseId={course.id} versions={versions} />}
+      <PendingCertificatesPanel rows={certificates} showOrganization={scope.kind === "platform"} />
       <CourseEnrollmentTable enrollments={enrollments} showOrganization={scope.kind === "platform"} />
     </>
   );

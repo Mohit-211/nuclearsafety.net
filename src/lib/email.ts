@@ -4,7 +4,8 @@ import { env } from '@/lib/env';
 
 /*
  * Outgoing email via SMTP. When SMTP_HOST is not configured (local development)
- * messages — including their links — are printed to the server console instead.
+ * messages — including their links — are printed to the server console instead
+ * (attachments are listed by name and size).
  */
 
 let transporter: Transporter | null | undefined;
@@ -23,10 +24,13 @@ function getTransporter(): Transporter | null {
   return transporter;
 }
 
-export async function sendEmail(message: { to: string; subject: string; text: string }) {
+export type EmailAttachment = { filename: string; content: Buffer; contentType: string };
+
+export async function sendEmail(message: { to: string; subject: string; text: string; attachments?: EmailAttachment[] }) {
   const t = getTransporter();
   if (!t) {
-    console.info(`[email:console] To: ${message.to}\nSubject: ${message.subject}\n\n${message.text}\n`);
+    const files = message.attachments?.map(a => `[attachment: ${a.filename}, ${a.contentType}, ${a.content.length} bytes]\n`).join('') ?? '';
+    console.info(`[email:console] To: ${message.to}\nSubject: ${message.subject}\n\n${message.text}\n${files}`);
     return;
   }
   try {

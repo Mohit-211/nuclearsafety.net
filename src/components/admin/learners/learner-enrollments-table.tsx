@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { Users } from 'lucide-react';
 import { TableProgress } from '@/components/shared/progress-track';
-import { SectionHeader } from '@/components/admin/shared/detail-panels';
+import { CertificateLink, SectionHeader } from '@/components/admin/shared/detail-panels';
 import { statusClass } from '@/lib/format';
 import type { LearnerEnrollmentRow } from '@/lib/types';
 
@@ -19,6 +19,7 @@ export function LearnerEnrollmentsTable({ enrollments }: { enrollments: LearnerE
             <th className="col-score num">Score</th>
             <th>Status</th>
             <th className="col-activity">Completed on</th>
+            <th>Certificate</th>
           </tr>
         </thead>
         <tbody>
@@ -31,9 +32,10 @@ export function LearnerEnrollmentsTable({ enrollments }: { enrollments: LearnerE
             <td className="col-score num" data-label="Score">{row.score === null ? '—' : `${row.score}%`}{row.result && <small className="block text-[10px] text-muted-foreground">{row.result}</small>}</td>
             <td data-label="Status"><span className={`badge ${statusClass(row.status)}`}>{row.status}</span></td>
             <td className="col-activity" data-label="Completed on">{row.completedOn ?? '—'}</td>
+            <td data-label="Certificate"><CertificateLink certificate={row.certificate} label={`Download ${row.title} certificate`} /></td>
           </tr>)}
           {enrollments.length === 0 && (
-            <tr><td colSpan={7}><div className="empty-state"><Users size={28} /><p>No courses assigned to this learner.</p></div></td></tr>
+            <tr><td colSpan={8}><div className="empty-state"><Users size={28} /><p>No courses assigned to this learner.</p></div></td></tr>
           )}
         </tbody>
       </table>

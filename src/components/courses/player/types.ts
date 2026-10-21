@@ -14,6 +14,10 @@ export type PlayerCourse = {
   category: string;
   duration: string;
   moduleCount: number;
+  /** The learner's certificate PDF for this course (resolved when clicked, so valid right after completion). */
+  certificateHref: string;
+  /** A certificate existed when the page loaded (completions from before certificates may not have one yet). */
+  hasCertificate: boolean;
 };
 
 export type PlayerLaunch = {

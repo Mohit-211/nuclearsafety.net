@@ -1,6 +1,7 @@
-import type { NextRequest } from 'next/server';
+import { after, type NextRequest } from 'next/server';
 import { getCurrentUser } from '@/lib/auth/current-user';
 import { CommitError, recordCommit } from '@/lib/services/attempts';
+import { emailCertificate } from '@/lib/services/certificates';
 import { env } from '@/lib/env';
 
 /*
@@ -38,7 +39,9 @@ export async function POST(request: NextRequest, ctx: RouteContext<'/api/attempt
 
   try {
     const body = await request.text();
-    await recordCommit(user, attemptId, body, request.nextUrl.searchParams.get('terminate') === 'true');
+    const { newCertificateId } = await recordCommit(user, attemptId, body, request.nextUrl.searchParams.get('terminate') === 'true');
+    // Content commits synchronously, so render and email the certificate after replying.
+    if (newCertificateId) after(() => emailCertificate(newCertificateId));
     return reply(true);
   } catch (err) {
     if (err instanceof CommitError) return reply(false, err.status);

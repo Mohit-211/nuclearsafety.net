@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef } from 'react';
-import { AlertTriangle, ArrowRight, CheckCircle2, Loader2, PlayCircle, RotateCcw, Save } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CheckCircle2, Download, Loader2, PlayCircle, RotateCcw, Save } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { PlayerCourse, PlayerPhase } from './types';
 import { useContentReady } from './use-content-ready';
@@ -26,6 +26,8 @@ export function PlayerStage({ course, phase, view, launchUrl, review, error, zoo
 }) {
   const frameRef = useRef<HTMLIFrameElement>(null);
   const { ready, elapsedMs } = useContentReady(frameRef, view === 'playing');
+  // Completing in this session always issues one; earlier completions may still be waiting for an admin.
+  const certificate = course.hasCertificate || !review;
 
   if (view === 'playing') {
     return <main className="player-stage is-playing">
@@ -64,10 +66,12 @@ export function PlayerStage({ course, phase, view, launchUrl, review, error, zoo
     {(view === 'intro' || view === 'closed') && phase === 'completed' && <div className="player-placeholder player-complete">
       <span className="player-placeholder-icon"><CheckCircle2 size={26} strokeWidth={1.6}/></span>
       <h2>Course completed</h2>
-      <p>{review && view === 'intro' ? 'You have completed this course. You can review it at any time — your result will not change. To take it again, request a retake from the course page.' : 'Well done. Your completion has been recorded and your certificate is available.'}</p>
+      <p>{review && view === 'intro' ? 'You have completed this course. You can review it at any time — your result will not change. To take it again, request a retake from the course page.'
+        : `Well done. Your completion has been recorded${certificate ? ' and your certificate is available' : ''}.${review ? '' : ' A copy has also been emailed to you.'}`}</p>
       <div className="flex gap-2 mt-5 flex-wrap justify-center">
         <Button variant="outline" onClick={view === 'intro' ? onStart : onReopen}><RotateCcw size={14}/>Review course</Button>
-        <Button onClick={onExit}>Back to course</Button>
+        <Button variant={certificate ? 'outline' : 'default'} onClick={onExit}>Back to course</Button>
+        {certificate && <Button asChild><a href={course.certificateHref} download><Download size={14}/>Download certificate</a></Button>}
       </div>
     </div>}
 

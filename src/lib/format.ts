@@ -7,6 +7,7 @@ export const TIME_ZONE = 'Europe/London';
 
 const dateFmt = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: TIME_ZONE });
 const longDateFmt = new Intl.DateTimeFormat('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: TIME_ZONE });
+const fullDateFmt = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: TIME_ZONE });
 const isoDayFmt = new Intl.DateTimeFormat('en-CA', { year: 'numeric', month: '2-digit', day: '2-digit', timeZone: TIME_ZONE });
 
 /** "6 Oct 2026" */
@@ -19,6 +20,11 @@ export function formatDate(d: Date | string | null | undefined): string {
 /** "Tuesday, 6 October 2026" */
 export function formatLongDate(d: Date): string {
   return longDateFmt.format(d);
+}
+
+/** "6 October 2026" (as printed on certificates) */
+export function formatFullDate(d: Date): string {
+  return fullDateFmt.format(d);
 }
 
 /** Today's date in the platform zone as YYYY-MM-DD. */

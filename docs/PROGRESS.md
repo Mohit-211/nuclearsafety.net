@@ -1,6 +1,6 @@
 # Progress
 
-_Last updated: 2026-10-07_
+_Last updated: 2026-10-22_
 
 ## Completed
 - **Phase 1 — Audit.** Converted Lovable UI reviewed; mock data (`src/lib/data/*`) and fake hooks
@@ -40,6 +40,19 @@ _Last updated: 2026-10-07_
   (50–200%, remembered per device), compressed + long-cached package assets (launch ~40% faster on
   first visit; see `docs/SCORM.md`). Production now runs on port 3100 (`ecosystem.config.cjs`) and
   `.env.example` is kept out of the repo (local copy only).
+- **Admin-set passwords (2026-10-22, user request).** "Add user" has a password field with Generate,
+  show/hide and copy; set → the account is created with it and no email is sent, empty → invite email as
+  before. Learner page → More actions → Set/Reset password (signs the user out, voids pending links; not for
+  the admin's own account). Afterwards the dialog shows the sign-in page, email and password with "Copy details".
+- **PDF certificates (2026-10-22, user request).** Certificate of Training in the client's format (their
+  ClassMarker certificate: layout, bands, logo and type measured from the sample; Liberation Serif + Open Sans,
+  OFL) with a random number in the same 11-9-10 letter format. Issued with the completion, emailed as a PDF
+  attachment, downloadable from the player's completion screen, course page, dashboard ("My certificates"),
+  certificates page (Download / View) and the admin learner and course pages. Migration `0002_certificates`.
+  Learners who completed before this release have no certificate until an admin generates it: admin dashboard
+  (and learner/course pages) → "Certificates to generate" → Generate / Generate all (dated with the original
+  completion, emailed). Unit tests 41, e2e smoke 111 checks — all passing (MySQL 8.4.10); UI checked in
+  headless Chrome (desktop + 390 px).
 
 ## In progress
 - Nothing mid-flight.
@@ -52,8 +65,10 @@ _Last updated: 2026-10-07_
 2. Manual check of the packages in Firefox/Safari/Edge and on mobile (automated run used Chrome only).
 3. Decide which of the two packages to use in production (both work; 2004 additionally reports scaled score).
 4. Resources page: replace placeholder entries with real documents (or remove the page).
-5. Optional: PDF certificates, email notifications for assignments/due dates/new retake requests,
-   multi-SCO sequencing, DB-backed rate limiting if ever clustered.
+5. Optional: email notifications for assignments/due dates/new retake requests, multi-SCO sequencing,
+   DB-backed rate limiting if ever clustered, re-issuing a certificate after a name correction.
+6. Confirm the certificate footer wording ("Taken at HazardU.com / A division of Canadian Nuclear Safety
+   Services Inc.", copied from the client's sample; set in `src/lib/certificates/pdf.ts`).
 
 ## Known limitations
 - Multi-SCO packages: only the first SCO is launched (upload shows a warning).
@@ -62,3 +77,7 @@ _Last updated: 2026-10-07_
 - Progress % is only known when the package reports `cmi.progress_measure` (SCORM 2004); otherwise
   in-progress courses show "—".
 - In-memory rate limiter and content-access cache assume a single app process (PM2 `instances: 1`).
+- Certificates keep the learner name and course title they were issued with; correcting a name later does
+  not change certificates already issued.
+- The certificate email is sent once, after the completing commit; if sending fails it is logged, not retried
+  (the PDF stays downloadable).

@@ -214,6 +214,28 @@ export const retakeRequests = mysqlTable('retake_requests', {
   index('retake_requests_assignment_idx').on(t.assignmentId),
 ]);
 
+/**
+ * Certificate of Training for a completed attempt (one per attempt). The printed name,
+ * course title and date are recorded at issue, so a certificate never changes after it
+ * was awarded and every download matches the copy emailed to the learner.
+ */
+export const certificates = mysqlTable('certificates', {
+  id: int('id').autoincrement().primaryKey(),
+  /** Printed certificate number, e.g. "CLPPBDVBNPF-ZVGVLGQGS-XCPXRPPPXH" (lib/certificates/number.ts). */
+  number: varchar('number', { length: 32 }).notNull(),
+  userId: int('user_id').notNull().references(() => users.id),
+  courseId: int('course_id').notNull().references(() => courses.id),
+  attemptId: int('attempt_id').notNull().references(() => attempts.id),
+  learnerName: varchar('learner_name', { length: 160 }).notNull(),
+  courseTitle: varchar('course_title', { length: 255 }).notNull(),
+  completedAt: datetime('completed_at').notNull(),
+  issuedAt: datetime('issued_at').notNull().default(sql`CURRENT_TIMESTAMP`),
+}, t => [
+  uniqueIndex('certificates_number_uq').on(t.number),
+  uniqueIndex('certificates_attempt_uq').on(t.attemptId),
+  index('certificates_user_course_idx').on(t.userId, t.courseId),
+]);
+
 /** Append-only audit / activity log. */
 export const auditEvents = mysqlTable('audit_events', {
   id: bigint('id', { mode: 'number' }).autoincrement().primaryKey(),
@@ -248,3 +270,4 @@ export type CourseVersion = typeof courseVersions.$inferSelect;
 export type Assignment = typeof assignments.$inferSelect;
 export type Attempt = typeof attempts.$inferSelect;
 export type RetakeRequest = typeof retakeRequests.$inferSelect;
+export type Certificate = typeof certificates.$inferSelect;

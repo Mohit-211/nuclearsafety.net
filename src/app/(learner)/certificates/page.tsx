@@ -7,13 +7,13 @@ import { myCertificates } from "@/lib/services/learner";
 
 export const metadata: Metadata = pageMetadata(
   "Certificates",
-  "View your completed training certificates.",
+  "View and download your completed training certificates.",
   { ogDescription: "Your nuclear safety training achievements." },
 );
 
 export default async function CertificatesPage() {
   const user = await requireUser();
-  const certificates = await myCertificates(user);
+  const certificates = await myCertificates(user.id);
   return (
     <>
       <PageHeading title="My certificates" subtitle="A record of your completed training.">

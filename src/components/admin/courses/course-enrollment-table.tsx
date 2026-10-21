@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { BookOpen } from 'lucide-react';
 import { TableProgress } from '@/components/shared/progress-track';
-import { SectionHeader } from '@/components/admin/shared/detail-panels';
+import { CertificateLink, SectionHeader } from '@/components/admin/shared/detail-panels';
 import { statusClass } from '@/lib/format';
 import type { EnrollmentRow } from '@/lib/types';
 
@@ -19,6 +19,7 @@ export function CourseEnrollmentTable({ enrollments, showOrganization }: { enrol
             <th>Progress</th>
             <th className="col-score num">Score</th>
             <th>Status</th>
+            <th>Certificate</th>
           </tr>
         </thead>
         <tbody>
@@ -30,9 +31,10 @@ export function CourseEnrollmentTable({ enrollments, showOrganization }: { enrol
             <td data-label="Progress"><TableProgress value={row.progress} label={`${row.learner} progress`} /></td>
             <td className="col-score num" data-label="Score">{row.score === null ? '—' : `${row.score}%`}</td>
             <td data-label="Status"><span className={`badge ${statusClass(row.status)}`}>{row.status}</span></td>
+            <td data-label="Certificate"><CertificateLink certificate={row.certificate} label={`Download certificate for ${row.learner}`} /></td>
           </tr>)}
           {enrollments.length === 0 && (
-            <tr><td colSpan={7}><div className="empty-state"><BookOpen size={28} /><p>No learners enrolled yet.</p></div></td></tr>
+            <tr><td colSpan={8}><div className="empty-state"><BookOpen size={28} /><p>No learners enrolled yet.</p></div></td></tr>
           )}
         </tbody>
       </table>

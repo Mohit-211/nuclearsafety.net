@@ -40,6 +40,8 @@
 - SCORM 2004: if the last session terminated with `cmi.exit` other than `suspend` (and the course is not
   complete) the next launch creates a new attempt (on the active version), per the 2004 spec.
 - Audit: `learner.course_started`, `learner.course_completed`, `learner.course_passed`, `learner.course_failed`.
+- The commit that completes an attempt also issues its certificate in the same transaction
+  (`services/certificates.ts`); the commit route emails the PDF after replying, so the content is not kept waiting.
 
 ## Verified so far
 - Unit tests: manifest parsing (1.2, 2004, xml:base, parameters, multi-SCO, invalid), ZIP security,

@@ -35,9 +35,12 @@ All configuration lives in `.env` (template: `.env.example`).
 - `src/lib/scorm/` — `manifest.ts` (imsmanifest parsing), `zip.ts` (safe ZIP inspect/extract),
   `ingest.ts` (upload pipeline), `cmi.ts` (CMI ⇄ persisted state, resume CMI), `runtime.ts`
   (**browser** adapter — the only file that touches scorm-again), `storage.ts`, `mime.ts`.
+- `src/lib/certificates/` — `number.ts` (certificate numbers), `pdf.ts` (pdf-lib layout copied from the client's
+  certificate; fonts + logo in `assets/certificate/`). Issuing/listing/emailing: `services/certificates.ts`.
 - Route handlers: `src/app/api/admin/packages` (ZIP upload), `src/app/api/attempts/[attemptId]/commit`
   (scorm-again lmsCommitUrl), `src/app/scorm/[versionId]/[...path]` (authorised content serving),
-  `src/app/api/admin/reports/export` (CSV).
+  `src/app/api/admin/reports/export` (CSV), `src/app/api/courses/[courseId]/certificate` (learner PDF),
+  `src/app/api/admin/certificates/[certificateId]` (admin PDF).
 - UI: `src/app/(auth|learner|player)/`, `src/app/admin/`; components under `src/components/`.
   Shared view-model types in `src/lib/types.ts`; display helpers in `src/lib/format.ts`.
 
@@ -48,6 +51,9 @@ All configuration lives in `.env` (template: `.env.example`).
 - Attempts are pinned to the package version they started on; activating a new version only affects new attempts.
 - Completion = SCORM completion AND not failed (`isCourseComplete`); completion and pass are sticky.
 - Completed attempts are review-only; a new attempt only via an approved retake request (`services/retakes.ts`).
+- At most one certificate per completed attempt, created only by `services/certificates.ts#issueCertificate`:
+  inside the completing commit's transaction, or by an admin generating one for an earlier completion
+  (`generateCertificates`). Printed name/title/date are recorded at issue and never rewritten.
 - React Compiler is on: closures passed as props are memoised by their dependencies, which are read
   during render — never use `x!.prop` on possibly-undefined state inside such closures.
 - Audit sensitive changes via `audit()` (`src/lib/audit.ts`); learner activity feeds read `learner.*` events.
@@ -55,9 +61,10 @@ All configuration lives in `.env` (template: `.env.example`).
 - Add a migration for every schema change (`npm run db:generate`) and update `docs/DATA_MODEL.md`.
 - Keep `docs/ENDPOINTS.md` and `docs/PROGRESS.md` current after each slice. Document only what exists.
 
-## Current state (2026-10-07)
-All blueprint phases 1–11 implemented, plus admin-approved retakes. Unit tests (30) and the e2e smoke
-test (67 checks, MySQL 8.4) pass. The client's Rise packages (SCORM 1.2 and 2004, in the user's Downloads:
+## Current state (2026-10-22)
+All blueprint phases 1–11 implemented, plus admin-approved retakes, admin-set passwords (with generator) and
+PDF certificates in the client's format (emailed on completion; admins generate them for earlier completions).
+Unit tests (41) and the e2e smoke test (111 checks, MySQL 8.4) pass. The client's Rise packages (SCORM 1.2 and 2004, in the user's Downloads:
 `operation-cleaning-training-scorm-*.zip`) were verified end to end in headless Chrome (see `docs/SCORM.md`).
 **Not yet done:** production deploy on the Contabo VPS; manual checks in other browsers.
 See `docs/PROGRESS.md` for the full Completed / Pending list and known limitations.

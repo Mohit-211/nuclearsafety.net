@@ -5,6 +5,7 @@ import { audit } from '@/lib/audit';
 import type { Principal } from '@/lib/auth/policy';
 import { buildLaunchCmi, isCourseComplete, mergeOutcome, normalizeCmi } from '@/lib/scorm/cmi';
 import type { PackageInfo, ScormVersion } from '@/lib/scorm/manifest';
+import { issueCertificate } from './certificates';
 
 /*
  * SCORM attempt lifecycle: launch (create or resume an attempt pinned to a package
@@ -117,7 +118,10 @@ export class CommitError extends Error {
 
 const MAX_CMI_BYTES = 4 * 1024 * 1024;
 
-/** Persist a runtime commit from scorm-again for the signed-in learner's own attempt. */
+/**
+ * Persist a runtime commit from scorm-again for the signed-in learner's own attempt.
+ * The commit that completes the course also issues its certificate (`newCertificateId`).
+ */
 export async function recordCommit(user: Principal, attemptId: number, rawBody: string, isTerminate: boolean) {
   if (rawBody.length > MAX_CMI_BYTES) throw new CommitError(413, 'Commit too large');
   let body: unknown;
@@ -126,10 +130,11 @@ export async function recordCommit(user: Principal, attemptId: number, rawBody: 
   if (!cmi || typeof cmi !== 'object') throw new CommitError(400, 'Missing cmi');
 
   const [row] = await db()
-    .select({ attempt: schema.attempts, scormVersion: schema.courseVersions.scormVersion, removedAt: schema.assignments.removedAt })
+    .select({ attempt: schema.attempts, scormVersion: schema.courseVersions.scormVersion, removedAt: schema.assignments.removedAt, courseTitle: schema.courses.title })
     .from(schema.attempts)
     .innerJoin(schema.courseVersions, eq(schema.courseVersions.id, schema.attempts.versionId))
     .innerJoin(schema.assignments, eq(schema.assignments.id, schema.attempts.assignmentId))
+    .innerJoin(schema.courses, eq(schema.courses.id, schema.attempts.courseId))
     .where(eq(schema.attempts.id, attemptId))
     .limit(1);
   // Same response for "missing" and "not yours" so attempt ids cannot be probed.
@@ -143,7 +148,7 @@ export async function recordCommit(user: Principal, attemptId: number, rawBody: 
   const nowComplete = isCourseComplete(outcome);
   const now = new Date();
 
-  await db().transaction(async tx => {
+  const newCertificateId = await db().transaction(async tx => {
     await tx.update(schema.attempts).set({
       completionStatus: outcome.completionStatus,
       successStatus: outcome.successStatus,
@@ -166,13 +171,17 @@ export async function recordCommit(user: Principal, attemptId: number, rawBody: 
     }).where(eq(schema.attempts.id, attemptId));
 
     const base = { actorId: user.id, entityType: 'attempt' as const, entityId: attemptId, subjectUserId: user.id, courseId: prev.courseId, organizationId: user.organizationId };
-    if (nowComplete && !wasComplete) await audit({ ...base, action: 'learner.course_completed' }, tx);
+    const completedNow = nowComplete && !wasComplete;
+    if (completedNow) await audit({ ...base, action: 'learner.course_completed' }, tx);
     if (outcome.successStatus !== prev.successStatus && outcome.successStatus !== 'unknown') {
       await audit({ ...base, action: outcome.successStatus === 'passed' ? 'learner.course_passed' : 'learner.course_failed', metadata: { scoreRaw: next.scoreRaw, scoreScaled: next.scoreScaled } }, tx);
     }
+    if (!completedNow) return null;
+    const certificate = await issueCertificate(tx, { attemptId, userId: user.id, courseId: prev.courseId, learnerName: user.name, courseTitle: row.courseTitle, completedAt: now });
+    return certificate.created ? certificate.id : null;
   });
 
-  return { completionStatus: outcome.completionStatus, successStatus: outcome.successStatus, complete: nowComplete };
+  return { completionStatus: outcome.completionStatus, successStatus: outcome.successStatus, complete: nowComplete, newCertificateId };
 }
 
 /** Does this user have access to content of this package version? (used by the content route) */

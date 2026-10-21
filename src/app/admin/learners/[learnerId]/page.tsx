@@ -15,7 +15,9 @@ import { assignableCourses } from "@/lib/services/catalogue";
 import { organizationOptions } from "@/lib/services/organizations";
 import { getLearnerDetail } from "@/lib/services/people";
 import { pendingRetakes } from "@/lib/services/retakes";
+import { pendingCertificates } from "@/lib/services/certificates";
 import { RetakeRequestsPanel } from "@/components/admin/retakes/retake-requests-panel";
+import { PendingCertificatesPanel } from "@/components/admin/certificates/pending-certificates-panel";
 
 async function load(scope: AdminScope, params: Promise<{ learnerId: string }>) {
   const id = Number((await params).learnerId);
@@ -37,8 +39,9 @@ export default async function AdminLearnerDetailPage({ params }: PageProps<"/adm
   if (!data) notFound();
   const { user: learner, enrollments, activity, progress } = data;
   const isPlatform = scope.kind === "platform";
-  const [courses, organizations, due, retakes] = await Promise.all([
+  const [courses, organizations, due, retakes, certificates] = await Promise.all([
     assignableCourses(scope), isPlatform ? organizationOptions() : Promise.resolve([]), defaultDueDate(), pendingRetakes(scope, { userId: learner.id }),
+    pendingCertificates(scope, { userId: learner.id }),
   ]);
   const count = (status: (typeof enrollments)[number]["status"]) => enrollments.filter((e) => e.status === status).length;
   const accountType: AccountType = learner.role === "platform_admin" ? "platform_admin" : learner.orgRole === "admin" ? "org_admin" : learner.organizationId ? "member" : "individual";
@@ -92,6 +95,7 @@ export default async function AdminLearnerDetailPage({ params }: PageProps<"/adm
       </div>
 
       <RetakeRequestsPanel rows={retakes} showLearner={false} />
+      <PendingCertificatesPanel rows={certificates} showLearner={false} />
       <LearnerEnrollmentsTable enrollments={enrollments} />
       <LearnerActivityTable activity={activity} />
     </>

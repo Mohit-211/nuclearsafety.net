@@ -6,6 +6,7 @@ import type { PlayerPhase } from "@/components/courses/player/types";
 import { getCurrentUser, requireUser } from "@/lib/auth/current-user";
 import { pageMetadata, unavailableMetadata } from "@/lib/metadata";
 import { launchCourse, LaunchError } from "@/lib/services/attempts";
+import { certificateHref } from "@/lib/services/certificates";
 import { myCourse } from "@/lib/services/learner";
 
 export const dynamic = "force-dynamic";
@@ -45,7 +46,10 @@ export default async function CoursePlayerPage({ params }: PageProps<"/courses/[
   const phase: PlayerPhase = course.status === "Completed" ? "completed" : course.status === "In progress" ? "in-progress" : "not-started";
   return (
     <CoursePlayer
-      course={{ id: course.id, code: course.code, title: course.title, category: course.category, duration: course.duration, moduleCount: course.modules.length }}
+      course={{
+        id: course.id, code: course.code, title: course.title, category: course.category, duration: course.duration, moduleCount: course.modules.length,
+        certificateHref: certificateHref(course.id), hasCertificate: !!course.certificateHref,
+      }}
       launch={{ ...launch, phase, progress: course.progress }}
     />
   );

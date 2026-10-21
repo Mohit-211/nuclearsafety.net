@@ -34,16 +34,23 @@ export type LearnerCourse = {
   retakeNote: string | null;
   /** The current attempt is an approved retake (attempt 2+). */
   isRetake: boolean;
+  /** PDF of the learner's latest certificate for this course (kept during a retake), if any. */
+  certificateHref: string | null;
 };
 
 export type CertificateView = {
+  id: number;
   courseId: number;
-  code: string;
+  /** Course title as printed on the certificate. */
   title: string;
-  learnerName: string;
+  number: string;
   awardedOn: string;
-  score: number | null;
+  /** PDF link (shown inline; add `download` to save it). */
+  href: string;
 };
+
+/** A learner's certificate as linked from admin tables. */
+export type AdminCertificateLink = { number: string; href: string };
 
 export type LearnerActivityItem = { kind: 'started' | 'completed' | 'passed' | 'failed'; course: string; date: string };
 
@@ -84,6 +91,7 @@ export type EnrollmentRow = {
   progress: number | null;
   score: number | null;
   status: EnrollmentStatus;
+  certificate: AdminCertificateLink | null;
 };
 
 export type LearnerStatusLabel = 'Active' | 'Overdue' | 'Inactive' | 'Invited';
@@ -115,6 +123,7 @@ export type LearnerEnrollmentRow = {
   status: EnrollmentStatus;
   completedOn: string | null;
   versionNumber: number | null;
+  certificate: AdminCertificateLink | null;
 };
 
 export type ReportRow = {

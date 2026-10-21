@@ -1,12 +1,14 @@
 import 'server-only';
-import { and, desc, eq, inArray, like, max, or, type SQL } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, like, max, or, type SQL } from 'drizzle-orm';
 import { db, schema } from '@/db';
 import { audit } from '@/lib/audit';
+import { hashPassword, passwordProblem } from '@/lib/auth/crypto';
 import { canChangeRoles, canManageUser, type AdminScope, type OrgRole, type PlatformRole } from '@/lib/auth/policy';
 import { destroyUserSessions } from '@/lib/auth/session';
 import { formatDate, formatRelativeDay } from '@/lib/format';
 import { UserError } from '@/lib/actions/result';
 import type { ActivityRow, AdminLearnerRow, LearnerEnrollmentRow, LearnerStatusLabel } from '@/lib/types';
+import { adminCertificateHref, certificateKey, latestCertificates } from './certificates';
 import { averageProgress, loadEnrollments, summarize } from './enrollments';
 import { sendPasswordLink } from './password-tokens';
 
@@ -76,14 +78,17 @@ export async function getLearnerDetail(scope: AdminScope, userId: number) {
   if (!u || !canManageUser(scope, u)) return null;
 
   const enrollments = await loadEnrollments({ userIds: [userId] });
+  const certificates = await latestCertificates({ userIds: [userId] });
   const rows: LearnerEnrollmentRow[] = enrollments.map(e => {
     const s = summarize(e);
+    const certificate = certificates.get(certificateKey(userId, e.courseId));
     return {
       courseId: e.courseId, code: e.courseCode, title: e.courseTitle, category: e.courseCategory ?? '—',
       enrolledOn: formatDate(e.assignedAt), due: e.dueDate ? formatDate(e.dueDate) : null,
       progress: s.progress, score: s.score, result: s.result, status: s.status,
       completedOn: s.completedAt ? formatDate(s.completedAt) : null,
       versionNumber: e.attempt?.versionNumber ?? null,
+      certificate: certificate ? { number: certificate.number, href: adminCertificateHref(certificate.id) } : null,
     };
   });
   const summaries = enrollments.map(e => summarize(e));
@@ -105,11 +110,12 @@ const actionLabels: Record<string, [string, ActivityRow['status']]> = {
   'retake.requested': ['Requested retake', 'Info'],
   'retake.approved': ['Retake approved', 'In progress'],
   'retake.declined': ['Retake declined', 'Info'],
+  'certificate.issued': ['Certificate generated', 'Info'],
 };
 
 /** Learner activity (starts, completions, results, assignments) within a scope. */
 export async function activityFeed(scope: AdminScope, opts: { userId?: number; courseId?: number; limit: number }): Promise<ActivityRow[]> {
-  const where: SQL[] = [or(like(schema.auditEvents.action, 'learner.%'), inArray(schema.auditEvents.action, ['assignment.created', 'assignment.removed', 'retake.requested', 'retake.approved', 'retake.declined']))!];
+  const where: SQL[] = [or(like(schema.auditEvents.action, 'learner.%'), inArray(schema.auditEvents.action, ['assignment.created', 'assignment.removed', 'retake.requested', 'retake.approved', 'retake.declined', 'certificate.issued']))!];
   if (opts.userId) where.push(eq(schema.auditEvents.subjectUserId, opts.userId));
   if (opts.courseId) where.push(eq(schema.auditEvents.courseId, opts.courseId));
   if (scope.kind === 'organization') where.push(eq(schema.organizationMembers.organizationId, scope.organizationId));
@@ -132,9 +138,21 @@ export type CreateUserInput = {
   name: string; email: string; jobTitle: string | null; department: string | null;
   /** Platform admins only: organization + org role, or a platform role. Ignored/forced for corporate admins. */
   organizationId: number | null; orgRole: OrgRole; platformRole: PlatformRole;
+  /** Set by the admin to share with the user directly; null = email a set-password invite instead. */
+  password: string | null;
 };
 
-/** Create an account and email a set-password invite. Corporate admins can only add members to their own organization. */
+/** Validate and hash a password chosen by an admin. */
+async function hashChosenPassword(password: string) {
+  const problem = passwordProblem(password);
+  if (problem) throw new UserError(problem, { password: problem });
+  return hashPassword(password);
+}
+
+/**
+ * Create an account, either with a password the admin shares with the user themselves or by
+ * emailing a set-password invite. Corporate admins can only add members to their own organization.
+ */
 export async function createUser(scope: AdminScope, actorId: number, input: CreateUserInput) {
   const organizationId = scope.kind === 'organization' ? scope.organizationId : input.organizationId;
   const orgRole: OrgRole = scope.kind === 'organization' ? 'member' : input.orgRole;
@@ -147,16 +165,21 @@ export async function createUser(scope: AdminScope, actorId: number, input: Crea
     const [org] = await db().select({ id: schema.organizations.id }).from(schema.organizations).where(eq(schema.organizations.id, organizationId));
     if (!org) throw new UserError('Organization not found.');
   }
+  const passwordHash = input.password === null ? null : await hashChosenPassword(input.password);
 
   const userId = await db().transaction(async tx => {
     const [created] = await tx.insert(schema.users).values({
       email: input.email, name: input.name, jobTitle: input.jobTitle, department: input.department, role: platformRole,
+      passwordHash, passwordChangedAt: passwordHash ? new Date() : null,
     }).$returningId();
     if (organizationId) await tx.insert(schema.organizationMembers).values({ organizationId, userId: created!.id, role: orgRole });
-    await audit({ actorId, action: 'user.created', entityType: 'user', entityId: created!.id, subjectUserId: created!.id, organizationId, metadata: { platformRole, orgRole: organizationId ? orgRole : null } }, tx);
+    await audit({
+      actorId, action: 'user.created', entityType: 'user', entityId: created!.id, subjectUserId: created!.id, organizationId,
+      metadata: { platformRole, orgRole: organizationId ? orgRole : null, passwordSetByAdmin: !!passwordHash },
+    }, tx);
     return created!.id;
   });
-  await inviteUser(scope, actorId, userId);
+  if (!passwordHash) await inviteUser(scope, actorId, userId);
   return userId;
 }
 
@@ -172,6 +195,25 @@ export async function inviteUser(scope: AdminScope, actorId: number, userId: num
   if (u.status !== 'active') throw new UserError('Activate the account before sending an invite.');
   await sendPasswordLink(u, u.hasPassword ? 'reset' : 'invite');
   await audit({ actorId, action: 'user.invited', entityType: 'user', entityId: userId, subjectUserId: userId, organizationId: u.organizationId });
+}
+
+/**
+ * Set a new password chosen by the admin, to share with the user directly (e.g. when they
+ * cannot receive email). Pending invite/reset links stop working and the user is signed
+ * out everywhere. Admins change their own password from their profile instead.
+ */
+export async function setUserPassword(scope: AdminScope, actorId: number, userId: number, password: string) {
+  if (userId === actorId) throw new UserError('Change your own password from your profile or settings page.');
+  const u = await requireManaged(scope, userId);
+  if (u.status !== 'active') throw new UserError('Activate the account before setting a password.');
+  const passwordHash = await hashChosenPassword(password);
+  await db().transaction(async tx => {
+    const now = new Date();
+    await tx.update(schema.users).set({ passwordHash, passwordChangedAt: now }).where(eq(schema.users.id, userId));
+    await tx.update(schema.passwordTokens).set({ usedAt: now }).where(and(eq(schema.passwordTokens.userId, userId), isNull(schema.passwordTokens.usedAt)));
+    await audit({ actorId, action: 'user.password_set', entityType: 'user', entityId: userId, subjectUserId: userId, organizationId: u.organizationId }, tx);
+  });
+  await destroyUserSessions(userId);
 }
 
 export async function updateUserDetails(scope: AdminScope, actorId: number, userId: number, input: { name: string; email: string; jobTitle: string | null; department: string | null }) {

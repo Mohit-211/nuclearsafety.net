@@ -4,7 +4,7 @@ import { db, schema, type Database } from '@/db';
 /** Activity/audit actions. Learner-facing activity feeds read the `learner.*` ones. */
 export type AuditAction =
   | 'auth.login' | 'auth.password_reset' | 'auth.password_changed'
-  | 'user.created' | 'user.updated' | 'user.invited' | 'user.status_changed' | 'user.role_changed'
+  | 'user.created' | 'user.updated' | 'user.invited' | 'user.password_set' | 'user.status_changed' | 'user.role_changed'
   | 'organization.created' | 'organization.updated' | 'organization.member_added' | 'organization.member_role_changed'
   | 'organization.course_granted' | 'organization.course_revoked'
   | 'course.created' | 'course.updated' | 'course.status_changed'
@@ -12,12 +12,13 @@ export type AuditAction =
   | 'assignment.created' | 'assignment.removed' | 'assignment.updated'
   | 'learner.course_started' | 'learner.course_completed' | 'learner.course_passed' | 'learner.course_failed'
   | 'retake.requested' | 'retake.approved' | 'retake.declined'
+  | 'certificate.issued'
   | 'settings.updated';
 
 export type AuditInput = {
   actorId: number | null;
   action: AuditAction;
-  entityType: 'user' | 'organization' | 'course' | 'course_version' | 'assignment' | 'attempt' | 'retake_request' | 'settings' | 'session';
+  entityType: 'user' | 'organization' | 'course' | 'course_version' | 'assignment' | 'attempt' | 'retake_request' | 'certificate' | 'settings' | 'session';
   entityId?: number | null;
   subjectUserId?: number | null;
   courseId?: number | null;

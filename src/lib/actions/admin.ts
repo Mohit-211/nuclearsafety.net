@@ -5,10 +5,11 @@ import { z } from 'zod';
 import { assertAdmin, assertPlatformAdmin } from '@/lib/auth/current-user';
 import { activateVersion, setCourseStatus, updateCourseMetadata } from '@/lib/services/catalogue';
 import { applyAssignmentChanges, updateDueDate } from '@/lib/services/assignments';
-import { createUser, inviteUser, setUserAccess, setUserStatus, updateUserDetails } from '@/lib/services/people';
+import { createUser, inviteUser, setUserAccess, setUserPassword, setUserStatus, updateUserDetails } from '@/lib/services/people';
 import { createOrganization, setCourseAccess, updateOrganization } from '@/lib/services/organizations';
 import { saveSettings, settingsSchema } from '@/lib/services/settings';
 import { decideRetake } from '@/lib/services/retakes';
+import { generateCertificates } from '@/lib/services/certificates';
 import { runAction, zEmail, zId, zName, zOptionalText, type ActionResult } from './result';
 
 /*
@@ -108,6 +109,18 @@ export async function decideRetakeAction(input: { requestId: number; approve: bo
   });
 }
 
+// ---- Certificates (platform + corporate admins, scoped) ---------------------------
+
+export async function generateCertificatesAction(input: { attemptIds: number[] }): Promise<ActionResult<{ issued: number; emailed: number }>> {
+  return runAction(async () => {
+    const { user, scope } = await assertAdmin();
+    const v = z.object({ attemptIds: zIds.min(1) }).parse(input);
+    const result = await generateCertificates(scope, user.id, v.attemptIds);
+    revalidatePath('/', 'layout');
+    return result;
+  });
+}
+
 // ---- Users -------------------------------------------------------------------
 
 const userSchema = z.object({
@@ -121,6 +134,8 @@ const createUserSchema = userSchema.extend({
   organizationId: zId.nullable().optional().transform(v => v ?? null),
   orgRole: z.enum(['member', 'admin']).default('member'),
   platformRole: z.enum(['platform_admin', 'learner']).default('learner'),
+  /** Empty = email an invite link instead. Checked against the password policy by the service. */
+  password: z.string().optional().transform(v => v || null),
 });
 
 export async function createUserAction(input: z.input<typeof createUserSchema>): Promise<ActionResult<{ userId: number }>> {
@@ -167,6 +182,15 @@ export async function inviteUserAction(input: { userId: number }): Promise<Actio
   return runAction(async () => {
     const { user, scope } = await assertAdmin();
     await inviteUser(scope, user.id, zId.parse(input.userId));
+    return done();
+  });
+}
+
+export async function setUserPasswordAction(input: { userId: number; password: string }): Promise<ActionResult> {
+  return runAction(async () => {
+    const { user, scope } = await assertAdmin();
+    const v = z.object({ userId: zId, password: z.string() }).parse(input);
+    await setUserPassword(scope, user.id, v.userId, v.password);
     return done();
   });
 }

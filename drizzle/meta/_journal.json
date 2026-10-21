@@ -15,6 +15,13 @@
       "when": 1791316601440,
       "tag": "0001_retake_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1792613054824,
+      "tag": "0002_certificates",
+      "breakpoints": true
     }
   ]
 }

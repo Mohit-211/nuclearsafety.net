@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react';
+import { FileDown } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { ProgressTrack } from '@/components/shared/progress-track';
+import type { AdminCertificateLink } from '@/lib/types';
 
 /** Panel with a definition list of label/value rows. */
 export function InfoPanel({ id, title, rows, wideLabel }: { id: string; title: string; rows: Array<[string, ReactNode]>; wideLabel?: string }) {
@@ -51,6 +54,14 @@ export function SectionHeader({ id, title, meta }: { id: string; title: string; 
     <h2 id={id} className="text-[15px] font-semibold">{title}</h2>
     <span className="text-[11px] text-muted-foreground">{meta}</span>
   </div>;
+}
+
+/** Certificate PDF download for a table row, or a dash when the learner has none. */
+export function CertificateLink({ certificate, label }: { certificate: AdminCertificateLink | null; label: string }) {
+  if (!certificate) return <>—</>;
+  return <Button variant="ghost" size="sm" className="action-btn" asChild>
+    <a href={certificate.href} download aria-label={label} title={`Certificate ${certificate.number}`}><FileDown size={14} /><span>PDF</span></a>
+  </Button>;
 }
 
 /** Fallback shown when an admin detail page's record does not exist. */

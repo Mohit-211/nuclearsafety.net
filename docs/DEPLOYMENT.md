@@ -10,6 +10,9 @@ CREATE USER 'scorm_app'@'127.0.0.1' IDENTIFIED BY '<strong password>';
 GRANT ALL PRIVILEGES ON scorm_platform.* TO 'scorm_app'@'127.0.0.1';
 ```
 Bind MySQL to 127.0.0.1. Back up with `mysqldump` **and** back up `STORAGE_DIR` (both are needed to restore).
+Run MySQL in UTC (`default-time-zone = '+00:00'` under `[mysqld]`, or a UTC system clock): column defaults use
+`CURRENT_TIMESTAMP` in the server's zone while the app writes UTC, so a non-UTC server skews dates such as
+"assigned on" and activity dates (observed 2026-10-22 on a non-UTC test machine).
 
 ## 3. Application
 ```bash
@@ -36,5 +39,8 @@ git pull && npm ci && npm run db:migrate && npm run build && pm2 reload scorm-pl
 
 ## 6. Smoke test after deploy
 Sign in as the seeded admin → Courses → Add course (upload the SCORM ZIP) → publish → Learners →
-Add user (invite email arrives) → assign the course → sign in as that learner → Start course → exit →
-re-open (should resume) → complete → certificate visible; Reports shows the result.
+Add user (leave the password empty: invite email arrives; or Generate one and share it) → assign the course →
+sign in as that learner → Start course → exit → re-open (should resume) → complete → "Download certificate"
+on the completion screen gives the PDF, and the certificate email arrives with it attached; Reports shows the result.
+Learners who completed before certificates were released appear on the admin dashboard under
+"Certificates to generate" — use "Generate all" once SMTP works so they receive theirs by email.

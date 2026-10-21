@@ -4,6 +4,7 @@ import { PageHeading } from "@/components/shared/page-heading";
 import { SampleNote } from "@/components/shared/sample-note";
 import { StatsGrid } from "@/components/shared/stat-card";
 import { AssignedTraining } from "@/components/dashboard/assigned-training";
+import { CertificatesPanel } from "@/components/dashboard/certificates-panel";
 import { ContinueLearning } from "@/components/dashboard/continue-learning";
 import { HelpPanel } from "@/components/dashboard/help-panel";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
@@ -21,7 +22,7 @@ export const metadata: Metadata = pageMetadata(
 
 export default async function DashboardPage() {
   const user = await requireUser();
-  const [courses, certificates, activity] = await Promise.all([myCourses(user.id), myCertificates(user), myRecentActivity(user.id)]);
+  const [courses, certificates, activity] = await Promise.all([myCourses(user.id), myCertificates(user.id), myRecentActivity(user.id)]);
   const count = (status: string) => courses.filter((c) => c.status === status).length;
   const firstName = user.name.split(/\s+/)[0];
 
@@ -38,7 +39,7 @@ export default async function DashboardPage() {
           { label: "Assigned courses", value: courses.length, note: "Your current learning plan", icon: BookOpen },
           { label: "In progress", value: count("In progress"), note: "Keep your learning moving", icon: Clock3 },
           { label: "Completed", value: count("Completed"), note: "Courses successfully completed", icon: CheckCircle2, tone: "success" },
-          { label: "Certificates earned", value: certificates.length, note: "Available to view and print", icon: Award, tone: "warning" },
+          { label: "Certificates earned", value: certificates.length, note: "Available to view and download", icon: Award, tone: "warning" },
         ]}
       />
       <div className="dashboard-grid">
@@ -51,6 +52,7 @@ export default async function DashboardPage() {
         </div>
         <aside className="dashboard-aside">
           <UpcomingDeadlines courses={courses} />
+          <CertificatesPanel certificates={certificates} />
           <RecentActivity activity={activity} />
           <HelpPanel />
         </aside>

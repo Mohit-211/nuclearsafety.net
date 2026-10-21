@@ -11,7 +11,8 @@ Browser ──HTTPS──▶ Nginx ──▶ next start (PM2, 1 instance)
                                ├─ Server Actions     → services → MySQL (+ audit_events)
                                ├─ /api/admin/packages  ZIP → STORAGE_DIR/tmp → validate → extract → STORAGE_DIR/packages/<uuid>
                                ├─ /scorm/<versionId>/… authorised static serving of package files (Range support)
-                               └─ /api/attempts/<id>/commit  scorm-again commits → attempts table
+                               ├─ /api/attempts/<id>/commit  scorm-again commits → attempts table (+ certificate on completion)
+                               └─ /api/courses/<id>/certificate, /api/admin/certificates/<id>  certificate PDFs
 ```
 
 ## Layers
@@ -43,7 +44,11 @@ SHA-256 of a random 256-bit token; cookie `ns_session`, httpOnly, SameSite=Lax, 
 account invites use one-time hashed tokens (`password_tokens`, 2 h / 72 h) emailed via SMTP
 (nodemailer) — printed to the server console when SMTP is not configured. Password change/reset
 revokes other sessions; deactivation revokes all sessions. Accounts are admin-created only
-(no public sign-up — decision 2026-10-07). Login is rate-limited in memory on **failed** attempts only
+(no public sign-up — decision 2026-10-07). When creating an account the admin either sets the password
+(typed or generated, shown once with copyable sign-in details for them to pass on) or leaves it empty to
+email an invite; admins can likewise reset a user's password directly (decision 2026-10-22), which signs the
+user out everywhere and voids pending invite/reset links — never for their own account (they use their
+profile/settings page). Login is rate-limited in memory on **failed** attempts only
 (8 per email / 50 per IP per 15 min) so shared office networks are not locked out; reset requests are
 rate-limited per IP and email.
 
@@ -56,10 +61,21 @@ admins); responses carry `X-Content-Type-Options: nosniff`, `frame-ancestors 'se
 `STORAGE_DIR` is otherwise reachable. If untrusted third-party packages ever need to be supported,
 move content to a separate origin and use scorm-again's cross-frame API (see `docs/SCORM.md`).
 
+## Certificates
+Every completed attempt gets a Certificate of Training, issued in the same transaction that records the
+completion (`services/certificates.ts#issueCertificate`), with a random number in the format of the client's
+existing certificates (`CLPPBDVBNPF-ZVGVLGQGS-XCPXRPPPXH`: 11-9-10 consonants). The printed name, course title
+and date are recorded at issue. The commit route emails the PDF as an attachment after responding (`after()`),
+so content commits are not slowed down. PDFs are rendered on request with pdf-lib by `src/lib/certificates/pdf.ts`,
+laid out after the client's ClassMarker certificate (measured from their sample) using the bundled client logo
+and OFL fonts in `assets/certificate/`. Completions without a certificate (learners who finished before
+certificates were introduced) are listed for admins under "Certificates to generate" (dashboard, learner and
+course pages, scoped); generating issues each one dated with the original completion and emails it.
+
 ## Deviations from the blueprint
 - None in technology. Notable product decisions: admin-created accounts only; retakes of completed
   courses require admin approval (until then review-only); a user belongs to at
-  most one organization; certificates are an on-screen/printable record (no PDF generation);
+  most one organization; certificates are PDFs in the client's existing certificate format;
   only the first SCO of multi-SCO packages is launched (sequencing not implemented — the supplied
   Rise-style packages are single-SCO).
 - Mock UI controls without backing behaviour were removed rather than faked: learner notification

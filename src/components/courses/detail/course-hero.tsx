@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { CalendarDays, Clock3, Layers, Play } from 'lucide-react';
+import { CalendarDays, Clock3, Download, Layers, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { statusClass } from '@/lib/format';
 import type { LearnerCourse } from '@/lib/types';
@@ -25,6 +25,7 @@ export function CourseHero({ course }: { course: LearnerCourse }) {
       <div className="featured-footer">
         <span className="text-[10px] text-muted-foreground">{course.status === 'Completed' ? 'Completed courses open in review mode' : course.isRetake ? 'Retake approved — this is a fresh attempt' : started ? 'Your progress is saved automatically' : 'Opens in the course player'}</span>
         <div className="flex items-center gap-2 flex-wrap">
+        {course.certificateHref && <Button variant="outline" asChild><a href={course.certificateHref} download><Download size={14}/>Download certificate</a></Button>}
         <RetakeRequest course={course} />
         {course.canLaunch
           ? <Button asChild>

@@ -9,7 +9,9 @@ import { formatLongDate } from "@/lib/format";
 import { pageMetadata } from "@/lib/metadata";
 import { adminOverview } from "@/lib/services/reports";
 import { pendingRetakes } from "@/lib/services/retakes";
+import { pendingCertificates } from "@/lib/services/certificates";
 import { RetakeRequestsPanel } from "@/components/admin/retakes/retake-requests-panel";
+import { PendingCertificatesPanel } from "@/components/admin/certificates/pending-certificates-panel";
 
 export const metadata: Metadata = pageMetadata(
   "Admin Dashboard",
@@ -18,7 +20,7 @@ export const metadata: Metadata = pageMetadata(
 
 export default async function AdminDashboardPage() {
   const { scope } = await requireAdmin();
-  const [overview, retakes] = await Promise.all([adminOverview(scope), pendingRetakes(scope)]);
+  const [overview, retakes, certificates] = await Promise.all([adminOverview(scope), pendingRetakes(scope), pendingCertificates(scope)]);
   const where = scope.kind === "platform" ? "across the platform" : `across ${scope.organizationName}`;
 
   return (
@@ -35,7 +37,8 @@ export default async function AdminDashboardPage() {
         ]}
       />
       <RetakeRequestsPanel rows={retakes} showOrganization={scope.kind === "platform"} />
-      <div className={retakes.length ? "training-section" : undefined}><CourseProgressTable rows={overview.courses} /></div>
+      <PendingCertificatesPanel rows={certificates} showOrganization={scope.kind === "platform"} />
+      <div className={retakes.length || certificates.length ? "training-section" : undefined}><CourseProgressTable rows={overview.courses} /></div>
       <RecentActivityTable rows={overview.activity} />
     </>
   );
